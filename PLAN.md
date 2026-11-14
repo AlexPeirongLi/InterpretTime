@@ -68,7 +68,7 @@ them without telling the other person first:
 Status: A1–A3 tested with real keys. A real three-turn conversation worked
 (about 4 seconds per AI turn), the voice made audio in all five tones, and
 transcribing that audio gave back the exact sentences, so the tone tags are
-not read out loud. Whether the five tones sound clearly different is A5.
+not read out loud. Alex listened to all five tones and could tell them apart (A5).
 
 - [x] A0. Set up the project, shared files and this plan (on `main`)
 - [x] A1. `POST /api/chat` — conversation so far in, the AI's next turn out
@@ -76,7 +76,7 @@ not read out loud. Whether the five tones sound clearly different is A5.
 - [x] A3. `POST /api/transcribe` — microphone recording in, text out
 - [ ] A4. Tune the prompt: short spoken sentences, one practice sentence per
       turn, explanations tied to what the person already recognises
-- [ ] A5. Listen to each tone, adjust the voice settings until the 5 emotions
+- [x] A5. Listen to each tone, adjust the voice settings until the 5 emotions
       are clearly different
 
 ### Person B tasks
