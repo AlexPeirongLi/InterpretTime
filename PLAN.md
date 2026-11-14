@@ -81,16 +81,20 @@ not read out loud. Alex listened to all five tones and could tell them apart (A5
 
 ### Person B tasks
 
-- [ ] B1. Start page (`app/page.tsx`) — what the site is, a Start button
-- [ ] B2. Conversation page (`app/talk/page.tsx`) — calls `/api/chat` with an
+Status: B1–B7 were built by Alex's Claude and tested in the browser with real
+keys. Alex tested the microphone button with a real microphone and it works.
+B8 needs a Vercel account.
+
+- [x] B1. Start page (`app/page.tsx`) — what the site is, a Start button
+- [x] B2. Conversation page (`app/talk/page.tsx`) — calls `/api/chat` with an
       empty history to get the AI's opening turn, shows the turns as a transcript
-- [ ] B3. Play each AI turn out loud through `/api/speak`, with a replay button
-- [ ] B4. Answer box: type and send, or hold the microphone button to record
+- [x] B3. Play each AI turn out loud through `/api/speak`, with a replay button
+- [x] B4. Answer box: type and send, or hold the microphone button to record
       and send the recording to `/api/transcribe`
-- [ ] B5. Save the conversation and profile in the browser
+- [x] B5. Save the conversation and profile in the browser
       (`lib/client/storage.ts`), with a "Start again" button
-- [ ] B6. Profile side panel using `lib/profile.ts`
-- [ ] B7. Styling, works on a phone, clear loading and error messages
+- [x] B6. Profile side panel using `lib/profile.ts`
+- [x] B7. Styling, works on a phone, clear loading and error messages
 - [ ] B8. Put the site online (Vercel), add the two API keys there
 
 Person B can build everything against the fake conversation and does not need
