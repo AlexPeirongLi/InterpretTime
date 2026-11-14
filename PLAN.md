@@ -82,7 +82,7 @@ not read out loud. Alex listened to all five tones and could tell them apart (A5
 ### Person B tasks
 
 Status: B1–B7 were built by Alex's Claude and tested in the browser with real
-keys. The microphone button has not been tried with a real microphone yet.
+keys. Alex tested the microphone button with a real microphone and it works.
 B8 needs a Vercel account.
 
 - [x] B1. Start page (`app/page.tsx`) — what the site is, a Start button
