@@ -7,20 +7,23 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { messageOf, postConversation } from "@/lib/client/api";
 import { turnsSegments } from "@/lib/client/scenarioSpeech";
-import { clearScenario, loadScenario, saveScenario, type SavedScenario } from "@/lib/client/storage";
+import { clearScenario, loadBaseline, loadScenario, saveScenario, type SavedScenario } from "@/lib/client/storage";
 import { useVoice } from "@/lib/client/useVoice";
 import { canHint, hintsThisTurn } from "@/lib/conversation";
 import {
   HINTS_PER_TURN,
+  type Baseline,
   type ConversationProgress,
   type ConversationRequest,
   type ConversationResponse,
+  type ReplyDelivery,
   type Scenario,
 } from "@/lib/types";
-import { AnswerBox } from "./AnswerBox";
+import { AnswerBox, type Spoken } from "./AnswerBox";
 import { FitProgress } from "./FitProgress";
 import { Notice } from "./Notice";
 import { ScenarioTranscript, scenarioTurnKey } from "./ScenarioTranscript";
+import { VoiceBaseline } from "./VoiceBaseline";
 
 /** How long the person can stay quiet before the "Take your time" note. */
 const NUDGE_AFTER_MS = 20_000;
@@ -29,7 +32,10 @@ const fresh = (): SavedScenario => ({ scenario: null, progress: { results: [] } 
 
 type Waiting = "start" | "reply" | "hint" | null;
 /** What went wrong, and what "Try again" should redo. */
-type ErrorState = { message: string; retry?: { action: "start" } | { action: "reply"; text: string } };
+type ErrorState = {
+  message: string;
+  retry?: { action: "start" } | { action: "reply"; text: string; delivery?: ReplyDelivery };
+};
 
 export default function ScenarioPractice() {
   const [saved, setSaved] = useState<SavedScenario>(() => loadScenario() ?? fresh());
@@ -41,6 +47,10 @@ export default function ScenarioPractice() {
   // and the one the "Take your time" note was shown for.
   const [activeTurn, setActiveTurn] = useState<string | null>(null);
   const [nudgeTurn, setNudgeTurn] = useState<string | null>(null);
+  // The person's normal voice, for tone feedback. The card asking for it shows
+  // until they record it or choose "Not now" (asked again on the next visit).
+  const [baseline, setBaseline] = useState<Baseline | null>(() => loadBaseline());
+  const [askBaseline, setAskBaseline] = useState(() => baseline === null);
 
   const voice = useVoice();
   const { play, stop } = voice;
@@ -105,26 +115,29 @@ export default function ScenarioPractice() {
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [scenario?.turns.length, pending, waiting]);
 
-  const sendReply = async (text: string) => {
+  const sendReply = async (text: string, delivery?: ReplyDelivery) => {
     if (!scenario) return;
     setPending(text);
     setWaiting("reply");
     setError(null);
     try {
-      await call({ action: "reply", scenario, text, progress }, scenario);
+      await call({ action: "reply", scenario, text, progress, ...(delivery ? { delivery } : {}) }, scenario);
       setPending(null);
     } catch (e) {
-      setError({ message: messageOf(e), retry: { action: "reply", text } });
+      setError({ message: messageOf(e), retry: { action: "reply", text, delivery } });
     } finally {
       setWaiting(null);
     }
   };
 
-  const send = (text: string): boolean => {
+  const send = (text: string, spoken: Spoken | null): boolean => {
     const reply = text.trim();
     if (!reply || waiting || pending || !scenario || scenario.done) return false;
     stop();
-    void sendReply(reply);
+    const delivery: ReplyDelivery | undefined = spoken
+      ? { measured: spoken.delivery, words: spoken.words, baseline }
+      : undefined;
+    void sendReply(reply, delivery);
     return true;
   };
 
@@ -168,7 +181,7 @@ export default function ScenarioPractice() {
     const what = error?.retry;
     if (!what) return;
     if (what.action === "start") void startScenario(progress);
-    else void sendReply(what.text);
+    else void sendReply(what.text, what.delivery);
   };
 
   const dismissError = () => {
@@ -209,14 +222,24 @@ export default function ScenarioPractice() {
   const progressSection = (
     <div className="flex flex-col gap-3">
       <FitProgress progress={progress} />
-      <button
-        type="button"
-        onClick={restart}
-        disabled={waiting === "start"}
-        className="self-start rounded-lg px-3 py-1.5 text-sm text-zinc-600 ring-1 ring-zinc-300 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-300 dark:ring-zinc-700 dark:hover:bg-zinc-800"
-      >
-        Start again
-      </button>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={restart}
+          disabled={waiting === "start"}
+          className="rounded-lg px-3 py-1.5 text-sm text-zinc-600 ring-1 ring-zinc-300 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-300 dark:ring-zinc-700 dark:hover:bg-zinc-800"
+        >
+          Start again
+        </button>
+        <button
+          type="button"
+          onClick={() => setAskBaseline(true)}
+          disabled={askBaseline}
+          className="rounded-lg px-3 py-1.5 text-sm text-zinc-600 ring-1 ring-zinc-300 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-300 dark:ring-zinc-700 dark:hover:bg-zinc-800"
+        >
+          {baseline ? "Redo normal voice" : "Record normal voice"}
+        </button>
+      </div>
     </div>
   );
 
@@ -313,6 +336,18 @@ export default function ScenarioPractice() {
           </Notice>
         )}
 
+        {askBaseline && scenario && (
+          <VoiceBaseline
+            redo={baseline !== null}
+            onRecordStart={stop}
+            onDone={(next) => {
+              setBaseline(next);
+              setAskBaseline(false);
+            }}
+            onSkip={() => setAskBaseline(false)}
+          />
+        )}
+
         {scenario && !scenario.done && (
           <div className="sticky bottom-0 -mx-4 flex flex-col gap-2 border-t border-zinc-200 bg-[var(--background)] px-4 pb-4 pt-3 sm:-mx-6 sm:px-6 dark:border-zinc-800">
             <div className="flex items-center justify-between gap-3">
@@ -336,7 +371,8 @@ export default function ScenarioPractice() {
               }}
               onType={markActive}
               placeholder={`Say something to ${scenario.characterName}…`}
-              help="Tap the microphone to speak, then check the words and send. Or just type."
+              help="Tap the microphone to speak your reply and get feedback on your tone too. Or just type."
+              checksTone
             />
           </div>
         )}

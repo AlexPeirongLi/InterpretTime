@@ -4,7 +4,7 @@
 
 import { EMOTION_LABELS } from "@/lib/emotions";
 import type { Feedback, Scenario, ScenarioTurn, SpeakRequest } from "@/lib/types";
-import { FIT_LABELS } from "./progress";
+import { FIT_LABELS, TONE_LABELS } from "./progress";
 
 type Segments = SpeakRequest["segments"];
 
@@ -40,6 +40,9 @@ export function feedbackScript(feedback: Feedback, characterName: string): strin
   ];
   if (feedback.cues.length) parts.push(`You could tell from ${feedback.cues.join(", and ")}.`);
   parts.push(feedback.wentWell, feedback.tryThis, `You could say: ${feedback.exampleReply}`);
+  if (feedback.tone) {
+    parts.push(`${TONE_LABELS[feedback.tone.fit]}.`, `Your voice ${feedback.tone.heard}.`, feedback.tone.tip);
+  }
   return parts.filter(Boolean).join(" ");
 }
 

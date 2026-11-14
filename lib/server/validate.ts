@@ -62,6 +62,10 @@ const feedback = z.object({
   tryThis: z.string().max(MAX_TEXT),
   exampleReply: z.string().max(MAX_TEXT),
   usedHint: z.boolean(),
+  tone: z
+    .object({ fit, heard: z.string().max(MAX_TEXT), tip: z.string().max(MAX_TEXT) })
+    .nullable()
+    .optional(),
 });
 
 const scenarioTurn = z.discriminatedUnion("role", [
@@ -84,7 +88,26 @@ const scenario = z.object({
 });
 
 const progress = z.object({
-  results: z.array(z.object({ emotion, fit, usedHint: z.boolean() })).max(1000),
+  results: z.array(z.object({ emotion, fit, usedHint: z.boolean(), toneFit: fit.optional() })).max(1000),
+});
+
+// Voice measurements. The bounds only reject nonsense; real values sit well inside.
+const seconds = z.number().min(0).max(600);
+const delivery = z.object({
+  seconds,
+  speechSeconds: seconds,
+  pitchHz: z.number().min(30).max(1000).nullable(),
+  pitchRange: z.number().min(0).max(48).nullable(),
+  loudnessDb: z.number().min(-200).max(20),
+  loudnessRange: z.number().min(0).max(200),
+  pauses: z.number().int().min(0).max(1000),
+  longestPause: seconds,
+});
+
+const replyDelivery = z.object({
+  measured: delivery,
+  words: z.number().int().min(0).max(2000),
+  baseline: delivery.extend({ wordsPerSecond: z.number().min(0).max(20) }).nullable(),
 });
 
 export const conversationRequestSchema: z.ZodType<ConversationRequest> = z.discriminatedUnion("action", [
@@ -94,6 +117,7 @@ export const conversationRequestSchema: z.ZodType<ConversationRequest> = z.discr
     scenario,
     text: z.string().trim().min(1).max(2000),
     progress,
+    delivery: replyDelivery.optional(),
   }),
   z.object({ action: z.literal("hint"), scenario, progress }),
 ]);

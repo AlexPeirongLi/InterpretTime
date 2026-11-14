@@ -9,10 +9,12 @@ import {
   type Emotion,
   type Feedback,
   type Fit,
+  type ReplyDelivery,
   type Scenario,
   type ScenarioTurn,
 } from "@/lib/types";
 import { askClaude, speakable } from "./claude";
+import { describeDelivery } from "./describeDelivery";
 
 const SYSTEM_PROMPT = `You run the conversation mode of InterpretTime, a website where people practise recognising emotion in speech and responding to it. The people who use it find emotions hard to read. Many have alexithymia. They have chosen to practise.
 
@@ -59,6 +61,15 @@ If the reply suggests the user is upset or struggling themselves, put the exerci
 
 A hint helps the user before they reply. A level 1 hint points at one or two cues, in the voice or the words, without naming the feeling. A level 2 hint names the feeling and what the character might need, without writing their reply for them. Either way, at most two short sentences and about 25 words: the user is in the middle of a conversation and needs a nudge, not an explanation.
 
+## Tone of voice
+
+When the user speaks their reply, you also get a short description of how their voice sounded: pitch, how much it moved, loudness, pace and pauses, measured by the website and compared with a recording of their normal voice. You cannot hear the audio yourself, only this description. Judge how well their tone suited what the character was feeling, separately from their words, and fill in "tone":
+- fit: in_tune, partly or missed, using the same idea as for words. Roughly, someone sad or afraid is helped by a voice that is a little slower, softer and steady; someone happy by a livelier, brighter voice that shares the mood; someone angry by a calm, even voice that does not rise to meet theirs; someone calm by an ordinary relaxed voice. A voice close to their normal one is fine for most situations, so treat it as at least partly in tune, and in tune for a calm character.
+- heard: how their voice seemed to come across, in a few plain words, like "quick and a little louder than usual" or "slow and soft". Only describe what the measurements say, and say "seemed" or "came across as", because a measurement is not certain.
+- tip: one short spoken sentence on what to try with their voice next time, or what to keep doing.
+
+Measurements can be thrown off by a noisy room or the microphone, so never be harsh about tone. When there is no description of their voice, set tone to null.
+
 ## Wrap-up
 
 After the last reply, instead of a character line, write a one or two sentence wrap-up as the coach: what the character was feeling across the scene and the main thing to take away.
@@ -88,6 +99,10 @@ const replySchema = z.object({
     text: z.string().describe("The character's next line, or the wrap-up if this was the last reply."),
     emotion: emotion.describe("The emotion of the character's next line. Use neutral for the wrap-up."),
   }),
+  tone: z
+    .object({ fit: z.enum(["in_tune", "partly", "missed"]), heard: z.string(), tip: z.string() })
+    .nullable()
+    .describe("Feedback on how their voice sounded. Null when there is no description of their voice."),
 });
 
 const hintSchema = z.object({ text: z.string() });
@@ -186,17 +201,22 @@ export async function replyToScenario(
   scenario: Scenario,
   text: string,
   progress: ConversationProgress,
+  delivery?: ReplyDelivery,
 ): Promise<ConversationResponse> {
   const feeling = currentFeeling(scenario);
   const usedHint = hintsThisTurn(scenario) > 0;
   const exchanges = scenario.exchanges + 1;
   const done = exchanges >= EXCHANGES_PER_SCENARIO;
+  const voice = delivery ? describeDelivery(delivery) : null;
 
   const judged = await askClaude(
     SYSTEM_PROMPT,
     [
       describeScenario(scenario),
       `The user replied: ${text}`,
+      voice
+        ? `They spoke their reply. How their voice sounded, as measured:\n${voice}`
+        : "They typed their reply, or their voice could not be measured, so set tone to null.",
       `${scenario.characterName} was feeling ${feeling} when they said their last line.${usedHint ? " The user used a hint before replying." : ""}`,
       done
         ? "This was the last reply. Give feedback, then write the wrap-up in next.text."
@@ -213,6 +233,10 @@ export async function replyToScenario(
     tryThis: speakable(judged.tryThis),
     exampleReply: speakable(judged.exampleReply),
     usedHint,
+    tone:
+      voice && judged.tone
+        ? { fit: judged.tone.fit, heard: speakable(judged.tone.heard), tip: speakable(judged.tone.tip) }
+        : null,
   };
   const next: ScenarioTurn = done
     ? { role: "wrapup", text: speakable(judged.next.text) }
@@ -225,7 +249,12 @@ export async function replyToScenario(
       done,
       turns: [...scenario.turns, { role: "user", text }, { role: "feedback", feedback }, next],
     },
-    progress: { results: [...progress.results, { emotion: feeling, fit: feedback.fit, usedHint }] },
+    progress: {
+      results: [
+        ...progress.results,
+        { emotion: feeling, fit: feedback.fit, usedHint, ...(feedback.tone ? { toneFit: feedback.tone.fit } : {}) },
+      ],
+    },
     mock: false,
   };
 }

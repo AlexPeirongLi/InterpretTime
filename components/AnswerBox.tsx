@@ -3,18 +3,29 @@
 import { useState } from "react";
 import { messageOf } from "@/lib/client/api";
 import { useRecorder } from "@/lib/client/useRecorder";
+import type { Delivery } from "@/lib/types";
+
+/** How a spoken answer sounded, and how many words were in that recording. */
+export type Spoken = { delivery: Delivery; words: number };
 
 type Props = {
   disabled: boolean;
-  /** Called with the answer. Returns false if it was not sent. */
-  onSend: (text: string) => boolean;
+  /**
+   * Called with the answer, and how it sounded if it was spoken and the voice
+   * could be measured. Returns false if it was not sent.
+   */
+  onSend: (text: string, spoken: Spoken | null) => boolean;
   /** Called when the person starts speaking, so the voice can stop. */
   onRecordStart: () => void;
   /** Called when the person types. */
   onType?: () => void;
   placeholder?: string;
   help?: string;
+  /** Tell the person when their tone could not be measured (conversation mode). */
+  checksTone?: boolean;
 };
+
+const countWords = (text: string) => text.split(/\s+/).filter(Boolean).length;
 
 export function AnswerBox({
   disabled,
@@ -23,27 +34,42 @@ export function AnswerBox({
   onType,
   placeholder = "How did it sound to you?",
   help = "Tap the microphone to speak, then check the words and send. Or just type.",
+  checksTone = false,
 }: Props) {
   const [text, setText] = useState("");
+  const [spoken, setSpoken] = useState<Spoken | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
   const recorder = useRecorder();
   const recording = recorder.status === "recording";
   const transcribing = recorder.status === "transcribing";
 
   const submit = () => {
-    if (onSend(text)) {
+    if (onSend(text, text.trim() ? spoken : null)) {
       setText("");
+      setSpoken(null);
       setError(null);
+      setNote(null);
     }
   };
 
   const toggleMic = async () => {
     setError(null);
+    setNote(null);
     try {
       if (recording) {
-        const heard = await recorder.finish();
-        if (heard) setText((current) => (current ? `${current} ${heard}` : heard));
-        else setError("I didn't catch any words. Try again, or type your answer.");
+        const { text: heard, delivery } = await recorder.finish();
+        if (!heard) {
+          setError("I didn't catch any words. Try again, or type your answer.");
+          return;
+        }
+        setText((current) => (current ? `${current} ${heard}` : heard));
+        // The latest recording is the one the tone feedback is about.
+        if (delivery?.pitchHz != null) {
+          setSpoken({ delivery, words: countWords(heard) });
+        } else if (checksTone) {
+          setNote("I couldn't hear your tone clearly that time, so the feedback will be on your words only.");
+        }
       } else {
         onRecordStart();
         await recorder.start();
@@ -85,6 +111,7 @@ export function AnswerBox({
           value={text}
           onChange={(event) => {
             setText(event.target.value);
+            if (!event.target.value.trim()) setSpoken(null);
             onType?.();
           }}
           onKeyDown={(event) => {
@@ -110,10 +137,16 @@ export function AnswerBox({
         <p role="alert" className="text-sm text-red-700 dark:text-red-300">
           {error}
         </p>
-      ) : (
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          {help}
+      ) : note ? (
+        <p role="status" className="text-sm text-amber-800 dark:text-amber-200">
+          {note}
         </p>
+      ) : checksTone && spoken ? (
+        <p className="text-xs text-teal-800 dark:text-teal-300">
+          Your tone was measured. Check the words, then send.
+        </p>
+      ) : (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">{help}</p>
       )}
     </form>
   );

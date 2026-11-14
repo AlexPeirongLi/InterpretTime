@@ -74,6 +74,8 @@ export type Feedback = {
   /** A reply that would have fitted better. */
   exampleReply: string;
   usedHint: boolean;
+  /** How the reply sounded. Only for spoken replies; see TONE-CHECK.md. */
+  tone?: ToneFeedback | null;
 };
 
 export type ScenarioTurn =
@@ -101,13 +103,26 @@ export type Scenario = {
   done: boolean;
 };
 
-export type ConversationResult = { emotion: Emotion; fit: Fit; usedHint: boolean };
+export type ConversationResult = {
+  emotion: Emotion;
+  fit: Fit;
+  usedHint: boolean;
+  /** How well the tone fitted. Only for spoken replies. */
+  toneFit?: Fit;
+};
 export type ConversationProgress = { results: ConversationResult[] };
 
 // POST /api/conversation (JSON)
 export type ConversationRequest =
   | { action: "start"; progress: ConversationProgress }
-  | { action: "reply"; scenario: Scenario; text: string; progress: ConversationProgress }
+  | {
+      action: "reply";
+      scenario: Scenario;
+      text: string;
+      progress: ConversationProgress;
+      /** Only for spoken replies. */
+      delivery?: ReplyDelivery;
+    }
   | { action: "hint"; scenario: Scenario; progress: ConversationProgress };
 
 /** Always the whole updated scenario. The page replaces its copy. */
@@ -121,3 +136,45 @@ export type ConversationResponse = {
 export const EXCHANGES_PER_SCENARIO = 3;
 /** Hints available per reply. */
 export const HINTS_PER_TURN = 2;
+
+// ---------------------------------------------------------------------------
+// Tone check: how the person's spoken reply sounded. See TONE-CHECK.md.
+// ---------------------------------------------------------------------------
+
+/** What lib/delivery.ts measures from one recording. */
+export type Delivery = {
+  /** The whole recording. */
+  seconds: number;
+  /** Time actually speaking, pauses removed. */
+  speechSeconds: number;
+  /** Typical pitch. Null if there was too little voice to measure. */
+  pitchHz: number | null;
+  /** How much the pitch rises and falls, in semitones. */
+  pitchRange: number | null;
+  /** Typical loudness in dB, relative to the microphone (so only comparable on the same setup). */
+  loudnessDb: number;
+  /** How much the loudness changes, in dB. */
+  loudnessRange: number;
+  /** Pauses longer than half a second. */
+  pauses: number;
+  /** Seconds. */
+  longestPause: number;
+};
+
+/** The person's normal voice: the same measurements from a plain sentence. */
+export type Baseline = Delivery & { wordsPerSecond: number };
+
+export type ReplyDelivery = {
+  measured: Delivery;
+  /** Words spoken in this recording, from its transcript. */
+  words: number;
+  baseline: Baseline | null;
+};
+
+export type ToneFeedback = {
+  fit: Fit;
+  /** How they seemed to sound, e.g. "quick and fairly loud". */
+  heard: string;
+  /** One sentence. */
+  tip: string;
+};

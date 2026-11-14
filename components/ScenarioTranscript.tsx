@@ -1,4 +1,4 @@
-import { FIT_LABELS } from "@/lib/client/progress";
+import { FIT_LABELS, TONE_LABELS } from "@/lib/client/progress";
 import { turnSegments } from "@/lib/client/scenarioSpeech";
 import type { VoiceState } from "@/lib/client/useVoice";
 import type { Feedback, Fit, Scenario, SpeakRequest } from "@/lib/types";
@@ -66,6 +66,22 @@ function FeedbackCard({ feedback, characterName, play }: { feedback: Feedback; c
         </span>
         “{feedback.exampleReply}”
       </blockquote>
+      {feedback.tone && (
+        <div className="flex flex-col gap-2 border-t border-zinc-200 pt-3 text-sm dark:border-zinc-800">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium">How you sounded</span>
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${FIT_STYLES[feedback.tone.fit]}`}>
+              {TONE_LABELS[feedback.tone.fit]}
+            </span>
+          </div>
+          <p className="text-zinc-600 dark:text-zinc-300">Your voice {feedback.tone.heard}.</p>
+          <p className="text-zinc-600 dark:text-zinc-300">{feedback.tone.tip}</p>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            Measured from your microphone, compared with your normal voice. It can be thrown off by noise, so treat it
+            as a rough guide.
+          </p>
+        </div>
+      )}
       {feedback.usedHint && (
         <p className="text-xs text-zinc-500 dark:text-zinc-400">You used a hint for this one. That&apos;s fine.</p>
       )}

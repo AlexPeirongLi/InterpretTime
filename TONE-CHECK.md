@@ -86,32 +86,36 @@ Shared files, written by Person A in task TA0 and merged into `main` first:
 - `lib/delivery.ts`: first version of the measuring, with the same inputs and
   outputs as the final one.
 
+Status: all tasks were built together by Alex's Claude on the `alex` branch,
+instead of being split, and tested with stand-in recordings fed through the
+microphone code. Not yet tried with a real person's voice.
+
 ### Person A tasks
 
-- [ ] TA0. Add the types and a first `lib/delivery.ts`, merge into `main`
+- [x] TA0. Add the types and a first `lib/delivery.ts`, merge into `main`
       **first** (about 45 minutes)
-- [ ] TA1. Measuring: pitch, pitch range, loudness, loudness variation, pauses
+- [x] TA1. Measuring: pitch, pitch range, loudness, loudness variation, pauses
       and speaking speed from raw samples
-- [ ] TA2. Check the measuring against known voices: run it on ElevenLabs clips
+- [x] TA2. Check the measuring against known voices: run it on ElevenLabs clips
       of the same sentence said angry, sad, happy, afraid and calm, and confirm
       the numbers differ the way they should (angry louder, sad slower and
       lower, and so on)
-- [ ] TA3. Server: `/api/conversation` reply accepts the measurements, turns
+- [x] TA3. Server: `/api/conversation` reply accepts the measurements, turns
       them into words compared with the baseline, and asks Claude for tone
       feedback. Typed replies are unchanged.
-- [ ] TA4. Tune the prompt so tone feedback is short, careful ("seemed",
+- [x] TA4. Tune the prompt so tone feedback is short, careful ("seemed",
       "came across as") and gives one concrete tip
 
 ### Person B tasks
 
-- [ ] TB1. Microphone: while recording, feed the audio to `lib/delivery.ts` and
+- [x] TB1. Microphone: while recording, feed the audio to `lib/delivery.ts` and
       keep the measurements with the reply
-- [ ] TB2. "Your normal voice" step: shown before the first spoken reply, with
+- [x] TB2. "Your normal voice" step: shown before the first spoken reply, with
       the sentence to read, saved in the browser, and a Redo button
-- [ ] TB3. Send the measurements and baseline with spoken replies
-- [ ] TB4. Feedback card: a "How you sounded" part (fit, what was heard, tip),
+- [x] TB3. Send the measurements and baseline with spoken replies
+- [x] TB4. Feedback card: a "How you sounded" part (fit, what was heard, tip),
       read out by the narrator, and the note that typing skips it
-- [ ] TB5. Progress panel: tone results per emotion next to the word results
+- [x] TB5. Progress panel: tone results per emotion next to the word results
 
 ## The contract between the two halves
 
@@ -134,8 +138,9 @@ type Delivery = {
 type Baseline = Delivery & { wordsPerSecond: number };
 
 // ConversationRequest "reply" gains an optional delivery. Typed replies leave
-// it out. words per second is worked out on the server from the text.
-type ReplyDelivery = { measured: Delivery; baseline: Baseline | null };
+// it out. words is the number of words in that recording (from its transcript),
+// which the server uses with speechSeconds to work out the pace.
+type ReplyDelivery = { measured: Delivery; words: number; baseline: Baseline | null };
 //   { action: "reply"; scenario; text; progress; delivery?: ReplyDelivery }
 
 // Feedback gains an optional tone part. Missing or null for typed replies.

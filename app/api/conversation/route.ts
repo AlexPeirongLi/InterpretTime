@@ -37,7 +37,7 @@ function answerFromScript(req: ConversationRequest): ConversationResponse {
     case "start":
       return mockStart(req.progress);
     case "reply":
-      return mockReply(req.scenario, req.text, req.progress);
+      return mockReply(req.scenario, req.text, req.progress, req.delivery);
     case "hint":
       return mockHint(req.scenario, req.progress);
   }
@@ -48,7 +48,7 @@ function answerFromClaude(req: ConversationRequest): Promise<ConversationRespons
     case "start":
       return startScenario(req.progress);
     case "reply":
-      return replyToScenario(req.scenario, req.text, req.progress);
+      return replyToScenario(req.scenario, req.text, req.progress, req.delivery);
     case "hint":
       return hintForScenario(req.scenario, req.progress);
   }
