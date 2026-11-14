@@ -1,6 +1,6 @@
 // Per-emotion counts for the conversation mode progress section.
 
-import { EMOTIONS } from "@/lib/emotions";
+import { BASIC_EMOTIONS, EMOTIONS } from "@/lib/emotions";
 import type { ConversationProgress, Emotion, Fit } from "@/lib/types";
 
 export type FitSummary = {
@@ -13,8 +13,13 @@ export type FitSummary = {
   toneTotal: number;
 };
 
-export function summariseFits(progress: ConversationProgress): FitSummary[] {
-  return EMOTIONS.map((emotion) => {
+/** True once at least 4 of the 5 basic emotions have had a reply that was in tune. */
+export function readyForDeeperConversation(progress: ConversationProgress): boolean {
+  return BASIC_EMOTIONS.filter((e) => progress.results.some((r) => r.emotion === e && r.fit === "in_tune")).length >= 4;
+}
+
+export function summariseFits(progress: ConversationProgress, emotions: readonly Emotion[] = EMOTIONS): FitSummary[] {
+  return emotions.map((emotion) => {
     const results = progress.results.filter((r) => r.emotion === emotion);
     const counts: Record<Fit, number> = { in_tune: 0, partly: 0, missed: 0 };
     const toneCounts: Record<Fit, number> = { in_tune: 0, partly: 0, missed: 0 };

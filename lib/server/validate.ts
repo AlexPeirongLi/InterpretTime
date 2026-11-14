@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CUE_KINDS, EMOTIONS } from "@/lib/emotions";
+import { CUE_KINDS, EMOTION_SETS, EMOTIONS } from "@/lib/emotions";
 import type { ChatRequest, ConversationRequest, SpeakRequest } from "@/lib/types";
 import { jsonError } from "./http";
 
@@ -31,9 +31,12 @@ const attempt = z.object({
   heardAs: z.string().max(2000),
 });
 
+const emotionSet = z.enum(EMOTION_SETS);
+
 export const chatRequestSchema: z.ZodType<ChatRequest> = z.object({
   history: z.array(turn).max(200),
   profile: z.object({ attempts: z.array(attempt).max(500) }),
+  emotionSet: emotionSet.optional(),
 });
 
 export const speakRequestSchema: z.ZodType<SpeakRequest> = z.object({
@@ -87,6 +90,7 @@ const scenario = z.object({
   exchanges: z.number().int().min(0).max(10),
   done: z.boolean(),
   length: conversationLength.optional(),
+  emotionSet: z.enum(EMOTION_SETS).optional(),
 });
 
 const progress = z.object({
@@ -113,7 +117,12 @@ const replyDelivery = z.object({
 });
 
 export const conversationRequestSchema: z.ZodType<ConversationRequest> = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("start"), progress, length: conversationLength.optional() }),
+  z.object({
+    action: z.literal("start"),
+    progress,
+    length: conversationLength.optional(),
+    emotionSet: emotionSet.optional(),
+  }),
   z.object({
     action: z.literal("reply"),
     scenario,

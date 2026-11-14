@@ -11,14 +11,14 @@ import type { ChatResponse } from "@/lib/types";
 export async function POST(request: Request): Promise<Response> {
   const body = await readJson(request, chatRequestSchema);
   if ("response" in body) return body.response;
-  const { history, profile } = body.data;
+  const { history, profile, emotionSet } = body.data;
 
   if (!env.anthropicKey) {
-    return Response.json(mockChat(history, profile) satisfies ChatResponse);
+    return Response.json(mockChat(history, profile, emotionSet) satisfies ChatResponse);
   }
 
   try {
-    return Response.json((await chat(history, profile)) satisfies ChatResponse);
+    return Response.json((await chat(history, profile, emotionSet)) satisfies ChatResponse);
   } catch (error) {
     if (error instanceof UpstreamError) return jsonError(502, error.message);
     console.error("Chat route failed:", error);
