@@ -90,7 +90,7 @@ Person B can start straight away:
 - [x] CA4. Two voices: `/api/speak` accepts a `voice` on each segment
       (`narrator` or `character`) and joins them into one mp3. Quickfire keeps
       working unchanged, because a missing `voice` means narrator.
-- [ ] CA5. Tune the prompt and the character voice by ear: scenarios feel real,
+- [x] CA5. Tune the prompt and the character voice by ear: scenarios feel real,
       feedback is short, kind and specific
 
 ### Person B tasks
