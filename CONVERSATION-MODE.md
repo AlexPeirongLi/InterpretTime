@@ -75,10 +75,12 @@ Person B can start straight away:
 - `lib/mock-conversation.ts` — a scripted fake scenario, used by
   `/api/conversation` when there is no Claude key, so the page can be built
   before the AI works.
+- `lib/conversation.ts` — small rules both halves need: how many hints are
+  left, and which emotion a reply is judged against.
 
 ### Person A tasks
 
-- [ ] CA0. Add the new types and the fake scenario, open a pull request and
+- [x] CA0. Add the new types and the fake scenario, open a pull request and
       merge it into `main` **first** (about 30 minutes)
 - [ ] CA1. `POST /api/conversation`, action `start`: picks the next scenario,
       returns the scene and the other person's first line
@@ -155,7 +157,7 @@ type ConversationProgress = {
 type ConversationRequest =
   | { action: "start"; progress: ConversationProgress }
   | { action: "reply"; scenario: Scenario; text: string; progress: ConversationProgress }
-  | { action: "hint"; scenario: Scenario };
+  | { action: "hint"; scenario: Scenario; progress: ConversationProgress };
 
 // Always returns the whole updated scenario. The page replaces its copy.
 type ConversationResponse = {
@@ -177,6 +179,11 @@ Rules for the page:
   before. Play those: narrator turns with `voice: "narrator"`, character turns
   with `voice: "character"` and their emotion, feedback read as narrator.
 - A hint does not count as a reply and does not change `exchanges`.
+- Up to 2 hints per reply. `canHint(scenario)` in `lib/conversation.ts` says
+  whether another is allowed; use it to disable the Hint button. Asking for a
+  third returns 400.
+- `reply` and `hint` on a scenario where `done` is true return 400. Start a new
+  one with `start`.
 
 ## How we work together
 
