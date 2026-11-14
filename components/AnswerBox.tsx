@@ -145,9 +145,9 @@ export function AnswerBox({
         <p className="text-xs text-teal-800 dark:text-teal-300">
           Your tone was measured. Check the words, then send.
         </p>
-      ) : (
+      ) : help ? (
         <p className="text-xs text-zinc-500 dark:text-zinc-400">{help}</p>
-      )}
+      ) : null}
     </form>
   );
 }
