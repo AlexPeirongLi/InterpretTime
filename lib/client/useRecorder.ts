@@ -1,20 +1,61 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { DeliveryMeter } from "@/lib/delivery";
+import type { Delivery } from "@/lib/types";
 import { postTranscribe } from "./api";
 
 // Anything shorter is almost certainly an accidental tap.
 const MIN_BYTES = 2000;
 
-/** Records from the microphone and turns the recording into text. */
+export type Recording = {
+  /** What the person said. Empty when transcribing was skipped. */
+  text: string;
+  /** How their voice sounded (see lib/delivery.ts). Null if it could not be measured. */
+  delivery: Delivery | null;
+};
+
+/** Measures the voice while recording, from the same microphone stream. */
+type Metering = { context: AudioContext; meter: DeliveryMeter; nodes: AudioNode[] };
+
+function startMetering(stream: MediaStream): Metering | null {
+  try {
+    const context = new AudioContext();
+    const source = context.createMediaStreamSource(stream);
+    // ScriptProcessorNode is old but works in every browser without a
+    // separate worklet file. It only reads the audio; its output is silent.
+    const processor = context.createScriptProcessor(2048, 1, 1);
+    const meter = new DeliveryMeter(context.sampleRate);
+    processor.onaudioprocess = (event) => meter.push(event.inputBuffer.getChannelData(0));
+    source.connect(processor);
+    processor.connect(context.destination);
+    return { context, meter, nodes: [source, processor] };
+  } catch {
+    // No measuring in this browser: recording and transcribing still work.
+    return null;
+  }
+}
+
+function stopMetering(metering: Metering | null): Delivery | null {
+  if (!metering) return null;
+  for (const node of metering.nodes) node.disconnect();
+  void metering.context.close();
+  return metering.meter.result();
+}
+
+/** Records from the microphone, measures the voice, and turns the recording into text. */
 export function useRecorder() {
   const [status, setStatus] = useState<"idle" | "recording" | "transcribing">("idle");
   const recorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
+  const metering = useRef<Metering | null>(null);
 
   const release = useCallback(() => {
     recorder.current?.stream.getTracks().forEach((track) => track.stop());
     recorder.current = null;
+    const m = metering.current;
+    metering.current = null;
+    return stopMetering(m);
   }, []);
 
   /** Starts recording. Throws an Error with a message for the person. */
@@ -34,32 +75,43 @@ export function useRecorder() {
       if (event.data.size > 0) chunks.current.push(event.data);
     };
     recorder.current = r;
+    metering.current = startMetering(stream);
     r.start();
     setStatus("recording");
   }, []);
 
-  /** Stops recording and returns what the person said. */
-  const finish = useCallback(async (): Promise<string> => {
-    const r = recorder.current;
-    if (!r) return "";
-    const audio = await new Promise<Blob>((resolve) => {
-      r.onstop = () => resolve(new Blob(chunks.current, { type: r.mimeType || "audio/webm" }));
-      r.stop();
-    });
-    release();
-    if (audio.size < MIN_BYTES) {
-      setStatus("idle");
-      throw new Error("That recording was too short. Tap the microphone, speak, then tap it again.");
-    }
-    setStatus("transcribing");
-    try {
-      return await postTranscribe(audio);
-    } finally {
-      setStatus("idle");
-    }
-  }, [release]);
+  /**
+   * Stops recording. Returns what the person said and how their voice
+   * sounded. With transcribe: false, only measures (for the normal-voice step).
+   */
+  const finish = useCallback(
+    async ({ transcribe = true }: { transcribe?: boolean } = {}): Promise<Recording> => {
+      const r = recorder.current;
+      if (!r) return { text: "", delivery: null };
+      const audio = await new Promise<Blob>((resolve) => {
+        r.onstop = () => resolve(new Blob(chunks.current, { type: r.mimeType || "audio/webm" }));
+        r.stop();
+      });
+      const delivery = release();
+      if (audio.size < MIN_BYTES) {
+        setStatus("idle");
+        throw new Error("That recording was too short. Tap the microphone, speak, then tap it again.");
+      }
+      if (!transcribe) {
+        setStatus("idle");
+        return { text: "", delivery };
+      }
+      setStatus("transcribing");
+      try {
+        return { text: await postTranscribe(audio), delivery };
+      } finally {
+        setStatus("idle");
+      }
+    },
+    [release],
+  );
 
-  useEffect(() => release, [release]);
+  useEffect(() => () => void release(), [release]);
 
   return { status, start, finish };
 }

@@ -1,7 +1,7 @@
 // Saves the conversation and profile in this browser, so a reload carries on
 // where the person left off. Nothing is sent anywhere else.
 
-import type { ConversationProgress, Profile, Scenario, Turn } from "@/lib/types";
+import type { Baseline, ConversationLength, ConversationProgress, Profile, Scenario, Turn } from "@/lib/types";
 
 const KEY = "interprettime:conversation:v1";
 
@@ -95,5 +95,63 @@ export function clearScenario(): void {
     window.localStorage.removeItem(SCENARIO_KEY);
   } catch {
     // Nothing to clear.
+  }
+}
+
+// The conversation length the person picked last, offered first next time.
+const LENGTH_KEY = "interprettime:conversation-length:v1";
+
+export function loadLength(): ConversationLength | null {
+  try {
+    const value = window.localStorage.getItem(LENGTH_KEY);
+    return value === "quick" || value === "medium" || value === "full" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveLength(length: ConversationLength): void {
+  try {
+    window.localStorage.setItem(LENGTH_KEY, length);
+  } catch {
+    // Only a convenience.
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tone check: measurements of the person's normal voice. Kept apart from the
+// scenario, so Start again does not make them record it again.
+// ---------------------------------------------------------------------------
+
+const BASELINE_KEY = "interprettime:voice-baseline:v1";
+
+export function loadBaseline(): Baseline | null {
+  try {
+    const raw = window.localStorage.getItem(BASELINE_KEY);
+    if (!raw) return null;
+    const data: unknown = JSON.parse(raw);
+    if (
+      typeof data === "object" &&
+      data !== null &&
+      "pitchHz" in data &&
+      typeof data.pitchHz === "number" &&
+      "loudnessDb" in data &&
+      typeof data.loudnessDb === "number" &&
+      "wordsPerSecond" in data &&
+      typeof data.wordsPerSecond === "number"
+    ) {
+      return data as Baseline;
+    }
+  } catch {
+    // Storage blocked or broken: record it again.
+  }
+  return null;
+}
+
+export function saveBaseline(baseline: Baseline): void {
+  try {
+    window.localStorage.setItem(BASELINE_KEY, JSON.stringify(baseline));
+  } catch {
+    // Works for this visit only.
   }
 }

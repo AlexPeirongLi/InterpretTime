@@ -34,8 +34,10 @@ export function buildScript(segments: SpeakRequest["segments"]): string {
 async function failure(what: string, response: Response): Promise<UpstreamError> {
   const detail = (await response.text().catch(() => "")).slice(0, 500);
   console.error(`ElevenLabs ${what} failed: ${response.status} ${detail}`);
-  const reason =
-    response.status === 401
+  // ElevenLabs reports an empty balance with the same status as a bad key.
+  const reason = detail.includes("quota_exceeded")
+    ? "the ElevenLabs credit has run out (add more on the ElevenLabs website)"
+    : response.status === 401
       ? "the ElevenLabs API key was rejected"
       : response.status === 429
         ? "ElevenLabs is busy or out of credit"

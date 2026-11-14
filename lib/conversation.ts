@@ -1,6 +1,11 @@
 // Rules about a scenario's turns that both the server and the pages need.
 
-import { HINTS_PER_TURN, type Emotion, type Scenario, type ScenarioTurn } from "./types";
+import { HINTS_PER_TURN, REPLIES_BY_LENGTH, type Emotion, type Scenario, type ScenarioTurn } from "./types";
+
+/** How many replies this scenario lasts before the review. */
+export function repliesFor(scenario: Scenario): number {
+  return REPLIES_BY_LENGTH[scenario.length ?? "quick"];
+}
 
 /** The turns since the person last replied (or since the start). */
 export function currentTurnTurns(scenario: Scenario): ScenarioTurn[] {

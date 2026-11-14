@@ -4,7 +4,7 @@
 
 import { EMOTION_LABELS } from "@/lib/emotions";
 import type { Feedback, Scenario, ScenarioTurn, SpeakRequest } from "@/lib/types";
-import { FIT_LABELS } from "./progress";
+import { FIT_LABELS, TONE_LABELS } from "./progress";
 
 type Segments = SpeakRequest["segments"];
 
@@ -40,6 +40,9 @@ export function feedbackScript(feedback: Feedback, characterName: string): strin
   ];
   if (feedback.cues.length) parts.push(`You could tell from ${feedback.cues.join(", and ")}.`);
   parts.push(feedback.wentWell, feedback.tryThis, `You could say: ${feedback.exampleReply}`);
+  if (feedback.tone) {
+    parts.push(`${TONE_LABELS[feedback.tone.fit]}.`, `Your voice ${feedback.tone.heard}.`, feedback.tone.tip);
+  }
   return parts.filter(Boolean).join(" ");
 }
 
@@ -59,7 +62,13 @@ export function turnSegments(turn: ScenarioTurn, scenario: Scenario): Segments {
   }
 }
 
-/** The segments for several turns, played as one clip. */
+/**
+ * The segments for several new turns, played as one clip. Feedback is left
+ * out: it is kept for the review at the end, where each card can be played.
+ */
 export function turnsSegments(turns: ScenarioTurn[], scenario: Scenario): Segments {
-  return turns.flatMap((t) => turnSegments(t, scenario)).slice(0, MAX_SEGMENTS);
+  return turns
+    .filter((t) => t.role !== "feedback")
+    .flatMap((t) => turnSegments(t, scenario))
+    .slice(0, MAX_SEGMENTS);
 }

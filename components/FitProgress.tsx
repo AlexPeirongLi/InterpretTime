@@ -28,7 +28,8 @@ export function FitProgress({ progress }: { progress: ConversationProgress }) {
               )}
             </div>
             {row.total > 0 && (
-              <dl className="mt-1 flex gap-4 text-xs">
+              <dl className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
+                <dt className="w-12 text-zinc-500 dark:text-zinc-400">Words</dt>
                 {FITS.map((fit) => (
                   <div key={fit} className="flex gap-1">
                     <dt className="text-zinc-500 dark:text-zinc-400">{FIT_SHORT[fit]}</dt>
@@ -37,11 +38,22 @@ export function FitProgress({ progress }: { progress: ConversationProgress }) {
                 ))}
               </dl>
             )}
+            {row.toneTotal > 0 && (
+              <dl className="mt-0.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
+                <dt className="w-12 text-zinc-500 dark:text-zinc-400">Tone</dt>
+                {FITS.map((fit) => (
+                  <div key={fit} className="flex gap-1">
+                    <dt className="text-zinc-500 dark:text-zinc-400">{FIT_SHORT[fit]}</dt>
+                    <dd className={`font-semibold ${COUNT_STYLES[fit]}`}>{row.toneCounts[fit]}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
           </li>
         ))}
       </ul>
       <p className="text-xs text-zinc-500 dark:text-zinc-400">
-        Counted once per reply. Saved in this browser only.
+        Counted once per reply. Tone is counted for spoken replies only. Saved in this browser only.
       </p>
     </div>
   );

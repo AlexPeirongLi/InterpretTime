@@ -53,6 +53,7 @@ export const speakRequestSchema: z.ZodType<SpeakRequest> = z.object({
 
 const MAX_TEXT = 1000;
 const fit = z.enum(["in_tune", "partly", "missed"]);
+const conversationLength = z.enum(["quick", "medium", "full"]);
 
 const feedback = z.object({
   fit,
@@ -62,6 +63,10 @@ const feedback = z.object({
   tryThis: z.string().max(MAX_TEXT),
   exampleReply: z.string().max(MAX_TEXT),
   usedHint: z.boolean(),
+  tone: z
+    .object({ fit, heard: z.string().max(MAX_TEXT), tip: z.string().max(MAX_TEXT) })
+    .nullable()
+    .optional(),
 });
 
 const scenarioTurn = z.discriminatedUnion("role", [
@@ -81,19 +86,40 @@ const scenario = z.object({
   turns: z.array(scenarioTurn).max(60),
   exchanges: z.number().int().min(0).max(10),
   done: z.boolean(),
+  length: conversationLength.optional(),
 });
 
 const progress = z.object({
-  results: z.array(z.object({ emotion, fit, usedHint: z.boolean() })).max(1000),
+  results: z.array(z.object({ emotion, fit, usedHint: z.boolean(), toneFit: fit.optional() })).max(1000),
+});
+
+// Voice measurements. The bounds only reject nonsense; real values sit well inside.
+const seconds = z.number().min(0).max(600);
+const delivery = z.object({
+  seconds,
+  speechSeconds: seconds,
+  pitchHz: z.number().min(30).max(1000).nullable(),
+  pitchRange: z.number().min(0).max(48).nullable(),
+  loudnessDb: z.number().min(-200).max(20),
+  loudnessRange: z.number().min(0).max(200),
+  pauses: z.number().int().min(0).max(1000),
+  longestPause: seconds,
+});
+
+const replyDelivery = z.object({
+  measured: delivery,
+  words: z.number().int().min(0).max(2000),
+  baseline: delivery.extend({ wordsPerSecond: z.number().min(0).max(20) }).nullable(),
 });
 
 export const conversationRequestSchema: z.ZodType<ConversationRequest> = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("start"), progress }),
+  z.object({ action: z.literal("start"), progress, length: conversationLength.optional() }),
   z.object({
     action: z.literal("reply"),
     scenario,
     text: z.string().trim().min(1).max(2000),
     progress,
+    delivery: replyDelivery.optional(),
   }),
   z.object({ action: z.literal("hint"), scenario, progress }),
 ]);
