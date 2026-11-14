@@ -81,9 +81,7 @@ Shared files, changed by Person A in task DA0 and merged into `main` first:
   optional `emotionSet: "basics" | "both" | "deeper"`. Missing means
   "basics", so nothing that works now changes.
 
-Status: everything except DA5 was built together by Alex's Claude on the
-`alex` branch, and tested free in the scripted mode. DA5, the listening check,
-waits for Alex's go-ahead because it costs ElevenLabs credit.
+Status: all tasks were built by Alex's Claude on the `alex` branch, and tested free in the scripted mode. DA5: Alex listened to the subtle version of all 8 emotions in Sarah's voice (conversation characters) and all came across. George's voice (Quickfire) was only checked with the earlier, more obvious instructions.
 
 ### Person A tasks
 
@@ -95,7 +93,7 @@ waits for Alex's go-ahead because it costs ElevenLabs credit.
 - [x] DA3. Conversation prompt: deeper-emotion scenes, and what a fitting reply
       looks like for each
 - [x] DA4. Both routes accept the emotion set and only use emotions from it
-- [ ] DA5. Listening check: one short clip per new emotion for you to listen
+- [x] DA5. Listening check: one short clip per new emotion for you to listen
       to. **This costs ElevenLabs credit, about 1,000–1,500 credits for 8 clips
       in 2 voices, so it only runs when you say so.** Any emotion that doesn't
       sound right gets its instruction reworded, or is left out.
