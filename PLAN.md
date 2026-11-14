@@ -65,7 +65,7 @@ them without telling the other person first:
 
 ### Person A tasks
 
-- [ ] A0. Set up the project, shared files and this plan (on `main`)
+- [x] A0. Set up the project, shared files and this plan (on `main`)
 - [ ] A1. `POST /api/chat` — conversation so far in, the AI's next turn out
 - [ ] A2. `POST /api/speak` — the AI's turn in, one mp3 out, each part in its tone
 - [ ] A3. `POST /api/transcribe` — microphone recording in, text out
