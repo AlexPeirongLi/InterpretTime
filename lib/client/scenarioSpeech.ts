@@ -62,7 +62,13 @@ export function turnSegments(turn: ScenarioTurn, scenario: Scenario): Segments {
   }
 }
 
-/** The segments for several turns, played as one clip. */
+/**
+ * The segments for several new turns, played as one clip. Feedback is left
+ * out: it is kept for the review at the end, where each card can be played.
+ */
 export function turnsSegments(turns: ScenarioTurn[], scenario: Scenario): Segments {
-  return turns.flatMap((t) => turnSegments(t, scenario)).slice(0, MAX_SEGMENTS);
+  return turns
+    .filter((t) => t.role !== "feedback")
+    .flatMap((t) => turnSegments(t, scenario))
+    .slice(0, MAX_SEGMENTS);
 }

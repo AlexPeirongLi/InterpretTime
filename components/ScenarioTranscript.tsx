@@ -24,12 +24,28 @@ const FIT_STYLES: Record<Fit, string> = {
   missed: "bg-rose-100 text-rose-900 dark:bg-rose-400/20 dark:text-rose-200",
 };
 
-function FeedbackCard({ feedback, characterName, play }: { feedback: Feedback; characterName: string; play: React.ReactNode }) {
+function FeedbackCard({
+  feedback,
+  characterName,
+  play,
+  number,
+  reply,
+}: {
+  feedback: Feedback;
+  characterName: string;
+  play: React.ReactNode;
+  number: number;
+  reply: string;
+}) {
   return (
     <section
-      aria-label="Feedback on your reply"
+      aria-label={`Feedback on reply ${number}`}
       className="flex flex-col gap-3 rounded-2xl bg-zinc-50 p-4 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800"
     >
+      <p className="text-sm">
+        <span className="font-semibold">Reply {number}: </span>
+        <span className="text-zinc-600 dark:text-zinc-300">“{reply}”</span>
+      </p>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className={`rounded-full px-3 py-1 text-sm font-semibold ${FIT_STYLES[feedback.fit]}`}>
           {FIT_LABELS[feedback.fit]}
@@ -105,6 +121,13 @@ export function ScenarioTranscript({ scenario, pending, voice, onPlay, onStop, o
   };
   const canPlay = !voice.unavailable;
 
+  // Each feedback turn, with the reply it is about, for the review at the end.
+  const reviews = scenario.turns.flatMap((turn, index) => {
+    if (turn.role !== "feedback") return [];
+    const reply = scenario.turns.slice(0, index).findLast((t) => t.role === "user");
+    return [{ index, feedback: turn.feedback, reply: reply?.role === "user" ? reply.text : "" }];
+  }).map((review, n) => ({ ...review, number: n + 1 }));
+
   return (
     <ol aria-label="Conversation" className="flex flex-col gap-4">
       {scenario.turns.map((turn, i) => {
@@ -138,15 +161,8 @@ export function ScenarioTranscript({ scenario, pending, voice, onPlay, onStop, o
               </li>
             );
           case "feedback":
-            return (
-              <li key={i}>
-                <FeedbackCard
-                  feedback={turn.feedback}
-                  characterName={scenario.characterName}
-                  play={canPlay ? play(i, "Hear feedback") : null}
-                />
-              </li>
-            );
+            // Kept for the review at the end, so the conversation isn't interrupted.
+            return null;
           case "hint":
             return (
               <li key={i} className="flex flex-col gap-2 rounded-xl bg-sky-50 px-4 py-3 text-sm text-sky-950 ring-1 ring-sky-200 dark:bg-sky-950/50 dark:text-sky-100 dark:ring-sky-900">
@@ -161,9 +177,22 @@ export function ScenarioTranscript({ scenario, pending, voice, onPlay, onStop, o
                 className="flex flex-col gap-3 rounded-2xl bg-teal-50 p-4 ring-1 ring-teal-600/30 dark:bg-teal-950/40 dark:ring-teal-400/30"
               >
                 <span className="text-sm font-semibold uppercase tracking-wide text-teal-800 dark:text-teal-300">
-                  Scenario finished
+                  Your review
                 </span>
                 <p className="leading-relaxed">{turn.text}</p>
+                <div className="flex flex-col gap-3">
+                  <span className="text-sm font-medium">Each reply</span>
+                  {reviews.map((review) => (
+                    <FeedbackCard
+                      key={review.index}
+                      number={review.number}
+                      reply={review.reply}
+                      feedback={review.feedback}
+                      characterName={scenario.characterName}
+                      play={canPlay ? play(review.index, "Hear feedback") : null}
+                    />
+                  ))}
+                </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"

@@ -1,7 +1,7 @@
 // Saves the conversation and profile in this browser, so a reload carries on
 // where the person left off. Nothing is sent anywhere else.
 
-import type { Baseline, ConversationProgress, Profile, Scenario, Turn } from "@/lib/types";
+import type { Baseline, ConversationLength, ConversationProgress, Profile, Scenario, Turn } from "@/lib/types";
 
 const KEY = "interprettime:conversation:v1";
 
@@ -95,6 +95,26 @@ export function clearScenario(): void {
     window.localStorage.removeItem(SCENARIO_KEY);
   } catch {
     // Nothing to clear.
+  }
+}
+
+// The conversation length the person picked last, offered first next time.
+const LENGTH_KEY = "interprettime:conversation-length:v1";
+
+export function loadLength(): ConversationLength | null {
+  try {
+    const value = window.localStorage.getItem(LENGTH_KEY);
+    return value === "quick" || value === "medium" || value === "full" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveLength(length: ConversationLength): void {
+  try {
+    window.localStorage.setItem(LENGTH_KEY, length);
+  } catch {
+    // Only a convenience.
   }
 }
 

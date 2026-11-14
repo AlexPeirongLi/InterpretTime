@@ -35,7 +35,7 @@ export async function POST(request: Request): Promise<Response> {
 function answerFromScript(req: ConversationRequest): ConversationResponse {
   switch (req.action) {
     case "start":
-      return mockStart(req.progress);
+      return mockStart(req.progress, req.length);
     case "reply":
       return mockReply(req.scenario, req.text, req.progress, req.delivery);
     case "hint":
@@ -46,7 +46,7 @@ function answerFromScript(req: ConversationRequest): ConversationResponse {
 function answerFromClaude(req: ConversationRequest): Promise<ConversationResponse> {
   switch (req.action) {
     case "start":
-      return startScenario(req.progress);
+      return startScenario(req.progress, req.length);
     case "reply":
       return replyToScenario(req.scenario, req.text, req.progress, req.delivery);
     case "hint":

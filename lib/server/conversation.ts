@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { currentFeeling, hintsThisTurn } from "@/lib/conversation";
+import { currentFeeling, hintsThisTurn, repliesFor } from "@/lib/conversation";
 import { EMOTIONS } from "@/lib/emotions";
 import {
-  EXCHANGES_PER_SCENARIO,
   HINTS_PER_TURN,
+  REPLIES_BY_LENGTH,
+  type ConversationLength,
   type ConversationProgress,
   type ConversationResponse,
   type Emotion,
@@ -18,7 +19,9 @@ import { describeDelivery } from "./describeDelivery";
 
 const SYSTEM_PROMPT = `You run the conversation mode of InterpretTime, a website where people practise recognising emotion in speech and responding to it. The people who use it find emotions hard to read. Many have alexithymia. They have chosen to practise.
 
-Each scenario is a short everyday scene with one other person who is feeling something. A narrator sets the scene. The other person, the character, speaks to the user. The user replies as themselves, as they would to a real person. After each reply you give feedback on how well the reply fitted what the character was feeling, and the character answers. There are ${EXCHANGES_PER_SCENARIO} replies per scenario, then a short wrap-up.
+Each scenario is an everyday scene with one other person who is feeling something. A narrator sets the scene. The other person, the character, speaks to the user. The user replies as themselves, as they would to a real person, and the character answers. A conversation lasts a set number of replies, which you are told: a quick one is 3, a medium one 5 and a full one 8.
+
+After each reply you also write feedback on how well it fitted what the character was feeling, but the user does not see it yet: all the feedback is shown together at the end, with your review. So the conversation runs without interruptions, like a real one, and the character must never react as if the user had seen any feedback.
 
 You play three parts, each in its own field: the narrator, the character, and the coach who gives feedback and hints.
 
@@ -37,6 +40,8 @@ The character speaks the way a real person would, one or two short sentences at 
 A calm or neutral scenario is a real option: a character who is simply telling you something, with nothing much to read. A good reply there is ordinary and does not invent a feeling that is not there.
 
 After the user replies, the character answers what they actually said. A warm reply might make them open up or feel a bit better. A dismissive one might make them go quiet or a little hurt. The feeling can shift the way it would for a real person, but keep it readable: one clear emotion at a time.
+
+In a longer conversation, let the scene develop like a real one: the character says more about what happened, asks the user things, reacts to how the conversation is going. Do not repeat the same point, and do not wrap the conversation up early: there should still be something to talk about until the last reply.
 
 ## Feedback
 
@@ -72,7 +77,7 @@ Measurements can be thrown off by a noisy room or the microphone, so never be ha
 
 ## Wrap-up
 
-After the last reply, instead of a character line, write a one or two sentence wrap-up as the coach: what the character was feeling across the scene and the main thing to take away.
+After the last reply, instead of a character line, write the review as the coach: three or four spoken sentences looking back over the whole conversation. Say what the character felt and how it changed, what the user did well across their replies, and the one main thing to work on next time. If their tone of voice was measured, include one sentence about it. Speak to the user directly and keep it warm and specific: it is read out after the per-reply feedback has been shown.
 
 ## Writing for the ear
 
@@ -96,8 +101,8 @@ const replySchema = z.object({
   tryThis: z.string(),
   exampleReply: z.string(),
   next: z.object({
-    text: z.string().describe("The character's next line, or the wrap-up if this was the last reply."),
-    emotion: emotion.describe("The emotion of the character's next line. Use neutral for the wrap-up."),
+    text: z.string().describe("The character's next line, or the review if this was the last reply."),
+    emotion: emotion.describe("The emotion of the character's next line. Use neutral for the review."),
   }),
   tone: z
     .object({ fit: z.enum(["in_tune", "partly", "missed"]), heard: z.string(), tip: z.string() })
@@ -141,12 +146,13 @@ function describeTurn(turn: ScenarioTurn, name: string): string {
       return `The user: ${turn.text}`;
     case "feedback": {
       const f = turn.feedback;
-      return `Your feedback: ${f.fit}. Cues: ${f.cues.join("; ")}. Went well: ${f.wentWell} Try: ${f.tryThis}`;
+      const tone = f.tone ? ` Tone: ${f.tone.fit}, ${f.tone.heard}.` : "";
+      return `(Your feedback, not shown to the user yet: ${f.fit}. Cues: ${f.cues.join("; ")}. Went well: ${f.wentWell} Try: ${f.tryThis}${tone})`;
     }
     case "hint":
       return `Your hint (level ${turn.level}): ${turn.text}`;
     case "wrapup":
-      return `Your wrap-up: ${turn.text}`;
+      return `Your review: ${turn.text}`;
   }
 }
 
@@ -171,13 +177,17 @@ function describeProgress(progress: ConversationProgress): string {
 
 // --- The three actions ----------------------------------------------------------
 
-export async function startScenario(progress: ConversationProgress): Promise<ConversationResponse> {
+export async function startScenario(
+  progress: ConversationProgress,
+  length: ConversationLength = "quick",
+): Promise<ConversationResponse> {
   const feeling = pickEmotion(progress);
+  const replies = REPLIES_BY_LENGTH[length];
   const started = await askClaude(
     SYSTEM_PROMPT,
     [
       describeProgress(progress),
-      `Write a new scenario where the character is feeling ${feeling}. Make it different from anything obvious or repeated: pick a fresh everyday situation.`,
+      `Write a new scenario where the character is feeling ${feeling}. Make it different from anything obvious or repeated: pick a fresh everyday situation. The conversation will last ${replies} replies, so choose a situation with enough in it to talk about for that long.`,
     ].join("\n\n"),
     startSchema,
   );
@@ -193,6 +203,7 @@ export async function startScenario(progress: ConversationProgress): Promise<Con
     ],
     exchanges: 0,
     done: false,
+    length,
   };
   return { scenario, progress, mock: false };
 }
@@ -206,7 +217,8 @@ export async function replyToScenario(
   const feeling = currentFeeling(scenario);
   const usedHint = hintsThisTurn(scenario) > 0;
   const exchanges = scenario.exchanges + 1;
-  const done = exchanges >= EXCHANGES_PER_SCENARIO;
+  const replies = repliesFor(scenario);
+  const done = exchanges >= replies;
   const voice = delivery ? describeDelivery(delivery) : null;
 
   const judged = await askClaude(
@@ -219,8 +231,8 @@ export async function replyToScenario(
         : "They typed their reply, or their voice could not be measured, so set tone to null.",
       `${scenario.characterName} was feeling ${feeling} when they said their last line.${usedHint ? " The user used a hint before replying." : ""}`,
       done
-        ? "This was the last reply. Give feedback, then write the wrap-up in next.text."
-        : `This was reply ${exchanges} of ${EXCHANGES_PER_SCENARIO}. Give feedback, then write ${scenario.characterName}'s next line.`,
+        ? `This was the last of ${replies} replies. Give feedback on it, then write the review of the whole conversation in next.text.`
+        : `This was reply ${exchanges} of ${replies}. Give feedback on it, then write ${scenario.characterName}'s next line.`,
     ].join("\n\n"),
     replySchema,
   );

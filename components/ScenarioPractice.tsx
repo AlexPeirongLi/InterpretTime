@@ -7,12 +7,21 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { messageOf, postConversation } from "@/lib/client/api";
 import { turnsSegments } from "@/lib/client/scenarioSpeech";
-import { clearScenario, loadBaseline, loadScenario, saveScenario, type SavedScenario } from "@/lib/client/storage";
+import {
+  clearScenario,
+  loadBaseline,
+  loadLength,
+  loadScenario,
+  saveLength,
+  saveScenario,
+  type SavedScenario,
+} from "@/lib/client/storage";
 import { useVoice } from "@/lib/client/useVoice";
-import { canHint, hintsThisTurn } from "@/lib/conversation";
+import { canHint, hintsThisTurn, repliesFor } from "@/lib/conversation";
 import {
   HINTS_PER_TURN,
   type Baseline,
+  type ConversationLength,
   type ConversationProgress,
   type ConversationRequest,
   type ConversationResponse,
@@ -21,6 +30,7 @@ import {
 } from "@/lib/types";
 import { AnswerBox, type Spoken } from "./AnswerBox";
 import { FitProgress } from "./FitProgress";
+import { LengthPicker } from "./LengthPicker";
 import { Notice } from "./Notice";
 import { ScenarioTranscript, scenarioTurnKey } from "./ScenarioTranscript";
 import { VoiceBaseline } from "./VoiceBaseline";
@@ -34,12 +44,16 @@ type Waiting = "start" | "reply" | "hint" | null;
 /** What went wrong, and what "Try again" should redo. */
 type ErrorState = {
   message: string;
-  retry?: { action: "start" } | { action: "reply"; text: string; delivery?: ReplyDelivery };
+  retry?: { action: "start"; length: ConversationLength } | { action: "reply"; text: string; delivery?: ReplyDelivery };
 };
 
 export default function ScenarioPractice() {
   const [saved, setSaved] = useState<SavedScenario>(() => loadScenario() ?? fresh());
-  const [waiting, setWaiting] = useState<Waiting>(() => (saved.scenario ? null : "start"));
+  const [waiting, setWaiting] = useState<Waiting>(null);
+  // Choosing how long the next conversation lasts: at the very start, and
+  // after each review.
+  const [choosing, setChoosing] = useState(() => saved.scenario === null);
+  const [lastLength, setLastLength] = useState<ConversationLength | null>(() => loadLength());
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<ErrorState | null>(null);
   const [mock, setMock] = useState(false);
@@ -89,27 +103,39 @@ export default function ScenarioPractice() {
     [play],
   );
 
-  const startScenario = useCallback(
-    async (currentProgress: ConversationProgress) => {
-      setWaiting("start");
-      setError(null);
-      try {
-        await call({ action: "start", progress: currentProgress }, null);
-      } catch (e) {
-        setError({ message: messageOf(e), retry: { action: "start" } });
-      } finally {
-        setWaiting(null);
-      }
-    },
-    [call],
-  );
+  const startScenario = async (currentProgress: ConversationProgress, length: ConversationLength) => {
+    setWaiting("start");
+    setError(null);
+    try {
+      await call({ action: "start", progress: currentProgress, length }, null);
+    } catch (e) {
+      setError({ message: messageOf(e), retry: { action: "start", length } });
+    } finally {
+      setWaiting(null);
+    }
+  };
 
-  // On arrival with nothing saved, start the first scenario. Runs once.
+  const pickLength = (length: ConversationLength) => {
+    saveLength(length);
+    setLastLength(length);
+    setChoosing(false);
+    void startScenario(progress, length);
+  };
+
+  // On arrival in the middle of a scenario, play where it is up to once: the
+  // scene and the character's latest lines, so nobody has to press play
+  // first. If the browser blocks sound, it plays on the first tap or key.
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    if (!initial.current.scenario) void startScenario(initial.current.progress);
-  }, [startScenario]);
+    const current = initial.current.scenario;
+    if (!current || current.done) return;
+    const from = current.turns.findLastIndex((t) => t.role === "user") + 1;
+    const spoken = current.turns.slice(from).filter((t) => t.role === "narrator" || t.role === "character");
+    const first = current.turns.findIndex((t, i) => i >= from && (t.role === "narrator" || t.role === "character"));
+    const segments = turnsSegments(spoken, current);
+    if (segments.length && first >= 0) void play(segments, scenarioTurnKey(current, first));
+  }, [play]);
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -160,7 +186,7 @@ export default function ScenarioPractice() {
     generation.current++;
     stop();
     setPending(null);
-    void startScenario(progress);
+    setChoosing(true);
   };
 
   const restart = () => {
@@ -170,17 +196,17 @@ export default function ScenarioPractice() {
     generation.current++;
     stop();
     clearScenario();
-    const next = fresh();
-    setSaved(next);
+    setSaved(fresh());
     setPending(null);
+    setError(null);
     setMock(false);
-    void startScenario(next.progress);
+    setChoosing(true);
   };
 
   const retry = () => {
     const what = error?.retry;
     if (!what) return;
-    if (what.action === "start") void startScenario(progress);
+    if (what.action === "start") void startScenario(progress, what.length);
     else void sendReply(what.text, what.delivery);
   };
 
@@ -258,7 +284,9 @@ export default function ScenarioPractice() {
               <span className="font-medium">{scenario.title}</span>
               <span className="text-zinc-500 dark:text-zinc-400">
                 {" · "}
-                {scenario.done ? "finished" : `reply ${Math.min(scenario.exchanges + 1, 3)} of 3`}
+                {scenario.done
+                  ? "finished"
+                  : `reply ${Math.min(scenario.exchanges + 1, repliesFor(scenario))} of ${repliesFor(scenario)}`}
               </span>
             </p>
           )}
@@ -281,7 +309,7 @@ export default function ScenarioPractice() {
         {voice.blocked && (
           <Notice tone="info">
             <span className="flex flex-wrap items-center justify-between gap-3">
-              Your browser is waiting for a tap before it plays sound.
+              Your browser is waiting for a tap before it plays sound. Tap anywhere to hear it.
               <button
                 type="button"
                 onClick={() => voice.blocked && void play(voice.blocked.segments, voice.blocked.key)}
@@ -294,22 +322,30 @@ export default function ScenarioPractice() {
         )}
         {voice.error && <Notice tone="warn">{voice.error} You can still read the conversation.</Notice>}
 
-        {scenario && (
-          <ScenarioTranscript
-            scenario={scenario}
-            pending={pending}
-            voice={voice}
-            onPlay={play}
-            onStop={stop}
-            onNext={nextScenario}
-            nextDisabled={waiting !== null}
-          />
+        {choosing ? (
+          <LengthPicker last={lastLength} disabled={waiting !== null} onPick={pickLength} />
+        ) : (
+          scenario && (
+            <ScenarioTranscript
+              scenario={scenario}
+              pending={pending}
+              voice={voice}
+              onPlay={play}
+              onStop={stop}
+              onNext={nextScenario}
+              nextDisabled={waiting !== null}
+            />
+          )
         )}
 
         {waiting && waiting !== "hint" && (
           <p role="status" className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
             <span className="size-2 animate-pulse rounded-full bg-teal-600" aria-hidden />
-            {waiting === "start" ? "Setting the scene…" : "Thinking about your reply…"}
+            {waiting === "start"
+              ? "Setting the scene…"
+              : scenario && scenario.exchanges + 1 >= repliesFor(scenario)
+                ? "Writing your review…"
+                : `${scenario?.characterName ?? "They"} is thinking…`}
           </p>
         )}
         {error && (
@@ -336,7 +372,7 @@ export default function ScenarioPractice() {
           </Notice>
         )}
 
-        {askBaseline && scenario && (
+        {askBaseline && scenario && !choosing && (
           <VoiceBaseline
             redo={baseline !== null}
             onRecordStart={stop}
@@ -348,7 +384,7 @@ export default function ScenarioPractice() {
           />
         )}
 
-        {scenario && !scenario.done && (
+        {scenario && !scenario.done && !choosing && (
           <div className="sticky bottom-0 -mx-4 flex flex-col gap-2 border-t border-zinc-200 bg-[var(--background)] px-4 pb-4 pt-3 sm:-mx-6 sm:px-6 dark:border-zinc-800">
             <div className="flex items-center justify-between gap-3">
               {showNudge ? (
@@ -357,7 +393,7 @@ export default function ScenarioPractice() {
                 </p>
               ) : (
                 <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                  Reply to {scenario.characterName} as you would in real life.
+                  Reply to {scenario.characterName} as you would in real life. Feedback comes at the end.
                 </p>
               )}
               {hintButton}

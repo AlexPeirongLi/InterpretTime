@@ -147,7 +147,7 @@ export default function Conversation() {
         {voice.blocked && (
           <Notice tone="info">
             <span className="flex flex-wrap items-center justify-between gap-3">
-              Your browser is waiting for a tap before it plays sound.
+              Your browser is waiting for a tap before it plays sound. Tap anywhere to hear it.
               <button
                 type="button"
                 onClick={() => voice.blocked && void play(voice.blocked.segments, voice.blocked.key)}

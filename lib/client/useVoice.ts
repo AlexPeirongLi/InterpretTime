@@ -96,5 +96,21 @@ export function useVoice() {
     };
   }, []);
 
+  // When the browser blocked sound until the person interacts, play it on
+  // their first tap or key press anywhere, instead of making them find a
+  // Play button. Starting the microphone stops it again straight away.
+  const { blocked } = state;
+  useEffect(() => {
+    if (!blocked) return;
+    const resume = () => void play(blocked.segments, blocked.key);
+    const options = { once: true, capture: true } as const;
+    window.addEventListener("pointerdown", resume, options);
+    window.addEventListener("keydown", resume, options);
+    return () => {
+      window.removeEventListener("pointerdown", resume, options);
+      window.removeEventListener("keydown", resume, options);
+    };
+  }, [blocked, play]);
+
   return { ...state, play, stop };
 }

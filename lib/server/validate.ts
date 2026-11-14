@@ -53,6 +53,7 @@ export const speakRequestSchema: z.ZodType<SpeakRequest> = z.object({
 
 const MAX_TEXT = 1000;
 const fit = z.enum(["in_tune", "partly", "missed"]);
+const conversationLength = z.enum(["quick", "medium", "full"]);
 
 const feedback = z.object({
   fit,
@@ -85,6 +86,7 @@ const scenario = z.object({
   turns: z.array(scenarioTurn).max(60),
   exchanges: z.number().int().min(0).max(10),
   done: z.boolean(),
+  length: conversationLength.optional(),
 });
 
 const progress = z.object({
@@ -111,7 +113,7 @@ const replyDelivery = z.object({
 });
 
 export const conversationRequestSchema: z.ZodType<ConversationRequest> = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("start"), progress }),
+  z.object({ action: z.literal("start"), progress, length: conversationLength.optional() }),
   z.object({
     action: z.literal("reply"),
     scenario,

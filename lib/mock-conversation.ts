@@ -3,10 +3,10 @@
 // built and tested before the real AI works. It follows the same shapes as the
 // real route but is not smart: it judges replies by looking for a few words.
 
-import { currentFeeling, hintsThisTurn } from "./conversation";
+import { currentFeeling, hintsThisTurn, repliesFor } from "./conversation";
 import {
-  EXCHANGES_PER_SCENARIO,
   HINTS_PER_TURN,
+  type ConversationLength,
   type ConversationProgress,
   type ConversationResponse,
   type Feedback,
@@ -36,7 +36,7 @@ function judge(reply: string): Fit {
   return hits >= 2 ? "in_tune" : hits === 1 ? "partly" : "missed";
 }
 
-export function mockStart(progress: ConversationProgress): ConversationResponse {
+export function mockStart(progress: ConversationProgress, length: ConversationLength = "quick"): ConversationResponse {
   const scenario: Scenario = {
     id: `mock-${Date.now()}`,
     title: "After the interview",
@@ -48,6 +48,7 @@ export function mockStart(progress: ConversationProgress): ConversationResponse 
     ],
     exchanges: 0,
     done: false,
+    length,
   };
   return { scenario, progress, mock: true };
 }
@@ -77,7 +78,7 @@ export function mockReply(
       : null,
   };
   const exchanges = scenario.exchanges + 1;
-  const done = exchanges >= EXCHANGES_PER_SCENARIO;
+  const done = exchanges >= repliesFor(scenario);
 
   return {
     scenario: {
@@ -90,7 +91,7 @@ export function mockReply(
         { role: "feedback", feedback },
         done
           ? { role: "wrapup", text: "Sam was sad about the interview. Noticing that first is what helps most." }
-          : { role: "character", text: LINES[exchanges], emotion: "sad" },
+          : { role: "character", text: LINES[exchanges % LINES.length], emotion: "sad" },
       ],
     },
     progress: {

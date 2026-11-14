@@ -97,11 +97,17 @@ export type Scenario = {
   /** What the character feels. The answer: do not show before feedback. */
   emotion: Emotion;
   turns: ScenarioTurn[];
-  /** Replies the person has made so far, 0-3. */
+  /** Replies the person has made so far. */
   exchanges: number;
   /** True after the wrap-up. */
   done: boolean;
+  /** How long the conversation lasts. Missing on older saved scenarios: "quick". */
+  length?: ConversationLength;
 };
+
+/** How many replies a conversation lasts. Feedback is shown at the end. */
+export type ConversationLength = "quick" | "medium" | "full";
+export const REPLIES_BY_LENGTH: Record<ConversationLength, number> = { quick: 3, medium: 5, full: 8 };
 
 export type ConversationResult = {
   emotion: Emotion;
@@ -114,7 +120,7 @@ export type ConversationProgress = { results: ConversationResult[] };
 
 // POST /api/conversation (JSON)
 export type ConversationRequest =
-  | { action: "start"; progress: ConversationProgress }
+  | { action: "start"; progress: ConversationProgress; length?: ConversationLength }
   | {
       action: "reply";
       scenario: Scenario;
@@ -132,7 +138,7 @@ export type ConversationResponse = {
   mock: boolean;
 };
 
-/** Replies per scenario before the wrap-up. */
+/** Replies per scenario before the wrap-up, for a "quick" conversation. */
 export const EXCHANGES_PER_SCENARIO = 3;
 /** Hints available per reply. */
 export const HINTS_PER_TURN = 2;
