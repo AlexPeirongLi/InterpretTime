@@ -48,7 +48,7 @@ export function useVoice() {
     audio.current?.pause();
     setState((s) => ({ ...s, status: "loading", activeKey: key, error: null, blocked: null }));
 
-    const cacheKey = JSON.stringify(segments.map((s) => [s.text, s.emotion]));
+    const cacheKey = JSON.stringify(segments.map((s) => [s.text, s.emotion, s.voice ?? "narrator"]));
     let url = cache.current.get(cacheKey);
     if (!url) {
       try {

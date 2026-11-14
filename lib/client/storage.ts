@@ -1,7 +1,7 @@
 // Saves the conversation and profile in this browser, so a reload carries on
 // where the person left off. Nothing is sent anywhere else.
 
-import type { Profile, Turn } from "@/lib/types";
+import type { ConversationProgress, Profile, Scenario, Turn } from "@/lib/types";
 
 const KEY = "interprettime:conversation:v1";
 
@@ -43,6 +43,56 @@ export function saveConversation(saved: Saved): void {
 export function clearConversation(): void {
   try {
     window.localStorage.removeItem(KEY);
+  } catch {
+    // Nothing to clear.
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Conversation mode: the current scenario and progress, kept apart from
+// Quickfire so each mode's Start again only clears its own.
+// ---------------------------------------------------------------------------
+
+const SCENARIO_KEY = "interprettime:scenario:v1";
+
+export type SavedScenario = { scenario: Scenario | null; progress: ConversationProgress };
+
+export function loadScenario(): SavedScenario | null {
+  try {
+    const raw = window.localStorage.getItem(SCENARIO_KEY);
+    if (!raw) return null;
+    const data: unknown = JSON.parse(raw);
+    if (
+      typeof data === "object" &&
+      data !== null &&
+      "scenario" in data &&
+      "progress" in data &&
+      typeof data.progress === "object" &&
+      data.progress !== null &&
+      "results" in data.progress &&
+      Array.isArray(data.progress.results) &&
+      (data.scenario === null ||
+        (typeof data.scenario === "object" && "turns" in data.scenario && Array.isArray(data.scenario.turns)))
+    ) {
+      return data as SavedScenario;
+    }
+  } catch {
+    // Storage blocked or the saved data is broken: start fresh.
+  }
+  return null;
+}
+
+export function saveScenario(saved: SavedScenario): void {
+  try {
+    window.localStorage.setItem(SCENARIO_KEY, JSON.stringify(saved));
+  } catch {
+    // Still works, just won't survive a reload.
+  }
+}
+
+export function clearScenario(): void {
+  try {
+    window.localStorage.removeItem(SCENARIO_KEY);
   } catch {
     // Nothing to clear.
   }

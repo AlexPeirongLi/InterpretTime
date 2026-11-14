@@ -12,7 +12,7 @@ type Props = {
 export const turnKey = (index: number) => `turn-${index}`;
 const segmentKey = (turn: number, segment: number) => `turn-${turn}-segment-${segment}`;
 
-function PlayButton({
+export function PlayButton({
   label,
   active,
   status,

@@ -11,6 +11,7 @@ import { useVoice } from "@/lib/client/useVoice";
 import { emptyProfile } from "@/lib/profile";
 import type { Profile, Turn } from "@/lib/types";
 import { AnswerBox } from "./AnswerBox";
+import { Notice } from "./Notice";
 import { ProfilePanel } from "./ProfilePanel";
 import { Transcript, turnKey } from "./Transcript";
 
@@ -18,19 +19,6 @@ const fresh = (): Saved => ({ history: [], profile: emptyProfile() });
 
 /** True when it is the AI's turn to speak. */
 const needsReply = (history: Turn[]) => history.length === 0 || history.at(-1)?.role === "user";
-
-function Notice({ tone, children }: { tone: "info" | "warn" | "error"; children: React.ReactNode }) {
-  const styles = {
-    info: "bg-sky-50 text-sky-900 ring-sky-200 dark:bg-sky-950/50 dark:text-sky-100 dark:ring-sky-900",
-    warn: "bg-amber-50 text-amber-900 ring-amber-200 dark:bg-amber-950/50 dark:text-amber-100 dark:ring-amber-900",
-    error: "bg-red-50 text-red-900 ring-red-200 dark:bg-red-950/50 dark:text-red-100 dark:ring-red-900",
-  }[tone];
-  return (
-    <div role={tone === "error" ? "alert" : "status"} className={`rounded-xl px-4 py-3 text-sm ring-1 ${styles}`}>
-      {children}
-    </div>
-  );
-}
 
 export default function Conversation() {
   const [saved, setSaved] = useState<Saved>(() => loadConversation() ?? fresh());
@@ -125,9 +113,12 @@ export default function Conversation() {
     <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-4 sm:px-6 lg:flex-row lg:items-start">
       <div className="flex min-w-0 flex-1 flex-col gap-4">
         <header className="flex items-center justify-between gap-3">
-          <Link href="/" className="font-semibold tracking-tight">
-            InterpretTime
-          </Link>
+          <p className="flex items-baseline gap-2">
+            <Link href="/" className="font-semibold tracking-tight">
+              InterpretTime
+            </Link>
+            <span className="text-sm text-zinc-500 dark:text-zinc-400">Quickfire</span>
+          </p>
           <button
             type="button"
             onClick={restart}

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { TalkClient } from "@/components/TalkClient";
 
 export const metadata: Metadata = {
-  title: "Practice conversation · InterpretTime",
+  title: "Quickfire · InterpretTime",
 };
 
 export default function TalkPage() {
