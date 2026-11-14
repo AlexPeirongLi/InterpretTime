@@ -1,4 +1,4 @@
-import type { Emotion, SpeakRequest } from "@/lib/types";
+import type { Emotion, SpeakRequest, Voice } from "@/lib/types";
 import { env, UpstreamError } from "./env";
 
 const API = "https://api.elevenlabs.io";
@@ -43,19 +43,56 @@ async function failure(what: string, response: Response): Promise<UpstreamError>
   return new UpstreamError(`Could not ${what}: ${reason}.`);
 }
 
-/** Speaks the segments as one mp3. Returns the audio stream. */
-export async function speak(
-  apiKey: string,
-  segments: SpeakRequest["segments"],
-): Promise<ReadableStream<Uint8Array>> {
-  const text = buildScript(segments);
-  if (!text) throw new UpstreamError("There is nothing to say.");
+type Segments = SpeakRequest["segments"];
 
-  const url = `${API}/v1/text-to-speech/${encodeURIComponent(env.voiceId)}?output_format=mp3_44100_128`;
+/** Splits segments into runs that share a voice, keeping their order. */
+function byVoice(segments: Segments): { voice: Voice; segments: Segments }[] {
+  const runs: { voice: Voice; segments: Segments }[] = [];
+  for (const segment of segments) {
+    const voice = segment.voice ?? "narrator";
+    const last = runs.at(-1);
+    if (last?.voice === voice) last.segments.push(segment);
+    else runs.push({ voice, segments: [segment] });
+  }
+  return runs.filter((run) => buildScript(run.segments).length > 0);
+}
+
+/** Speaks the segments as one mp3. */
+export async function speak(apiKey: string, segments: Segments): Promise<BodyInit> {
+  const runs = byVoice(segments);
+  if (runs.length === 0) throw new UpstreamError("There is nothing to say.");
+
+  // One voice (all of Quickfire): stream it straight through.
+  if (runs.length === 1) return speakOneVoice(apiKey, runs[0].voice, runs[0].segments);
+
+  // Several voices: one request each, then joined in order. MP3 files with the
+  // same format play back to back when joined like this. The requests go one
+  // after another because the free ElevenLabs plan allows only 2 at once.
+  const parts: Uint8Array[] = [];
+  for (const run of runs) {
+    const stream = await speakOneVoice(apiKey, run.voice, run.segments);
+    parts.push(new Uint8Array(await new Response(stream).arrayBuffer()));
+  }
+  const joined = new Uint8Array(parts.reduce((size, part) => size + part.length, 0));
+  let offset = 0;
+  for (const part of parts) {
+    joined.set(part, offset);
+    offset += part.length;
+  }
+  return joined;
+}
+
+async function speakOneVoice(
+  apiKey: string,
+  voice: Voice,
+  segments: Segments,
+): Promise<ReadableStream<Uint8Array>> {
+  const voiceId = voice === "character" ? env.characterVoiceId : env.voiceId;
+  const url = `${API}/v1/text-to-speech/${encodeURIComponent(voiceId)}?output_format=mp3_44100_128`;
   const response = await fetch(url, {
     method: "POST",
     headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
-    body: JSON.stringify({ text, model_id: env.ttsModel }),
+    body: JSON.stringify({ text: buildScript(segments), model_id: env.ttsModel }),
   });
   if (!response.ok || !response.body) throw await failure("make the voice", response);
   return response.body;

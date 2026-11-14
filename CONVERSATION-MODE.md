@@ -82,12 +82,12 @@ Person B can start straight away:
 
 - [x] CA0. Add the new types and the fake scenario, open a pull request and
       merge it into `main` **first** (about 30 minutes)
-- [ ] CA1. `POST /api/conversation`, action `start`: picks the next scenario,
+- [x] CA1. `POST /api/conversation`, action `start`: picks the next scenario,
       returns the scene and the other person's first line
-- [ ] CA2. Action `reply`: returns feedback on the person's reply and the other
+- [x] CA2. Action `reply`: returns feedback on the person's reply and the other
       person's next line, or the wrap-up after the third exchange
-- [ ] CA3. Action `hint`: returns the next hint (first cues, then the feeling)
-- [ ] CA4. Two voices: `/api/speak` accepts a `voice` on each segment
+- [x] CA3. Action `hint`: returns the next hint (first cues, then the feeling)
+- [x] CA4. Two voices: `/api/speak` accepts a `voice` on each segment
       (`narrator` or `character`) and joins them into one mp3. Quickfire keeps
       working unchanged, because a missing `voice` means narrator.
 - [ ] CA5. Tune the prompt and the character voice by ear: scenarios feel real,

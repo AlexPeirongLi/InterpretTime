@@ -15,6 +15,14 @@ export const env = {
   get voiceId() {
     return read("ELEVENLABS_VOICE_ID") ?? "JBFqnCBsd6RMkjVDRZzb";
   },
+  /**
+   * The other person in conversation mode, so they never sound like the
+   * narrator. Default: "Sarah", one of ElevenLabs' standard voices. Free
+   * plans can only use standard voices through the API, not library voices.
+   */
+  get characterVoiceId() {
+    return read("ELEVENLABS_CHARACTER_VOICE_ID") ?? "EXAVITQu4vr4xnSDxMaL";
+  },
   /** Must be a model that follows audio tags like [angry voice]: v3 or later. */
   get ttsModel() {
     return read("ELEVENLABS_TTS_MODEL") ?? "eleven_v4";
