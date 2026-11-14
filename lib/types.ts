@@ -38,8 +38,14 @@ export type Profile = { attempts: Attempt[] };
 export type ChatRequest = { history: Turn[]; profile: Profile };
 export type ChatResponse = { reply: AiTurn; profile: Profile; mock: boolean };
 
-// POST /api/speak (JSON) -> audio/mpeg bytes
-export type SpeakRequest = { segments: Pick<Segment, "text" | "emotion">[] };
+// Which voice speaks a segment. Conversation mode uses both; Quickfire only
+// uses the narrator.
+export type Voice = "narrator" | "character";
+
+// POST /api/speak (JSON) -> audio/mpeg bytes. A missing voice means "narrator".
+export type SpeakRequest = {
+  segments: (Pick<Segment, "text" | "emotion"> & { voice?: Voice })[];
+};
 
 // POST /api/transcribe (multipart form, file field "audio") -> JSON
 export type TranscribeResponse = { text: string };
@@ -47,3 +53,71 @@ export type TranscribeResponse = { text: string };
 // Any route on failure: this body with status 400 (bad input),
 // 503 (API key not set) or 502 (ElevenLabs or Claude failed).
 export type ApiError = { error: string };
+
+// ---------------------------------------------------------------------------
+// Conversation mode. See CONVERSATION-MODE.md.
+// ---------------------------------------------------------------------------
+
+/** How well the person's reply fitted what the other person was feeling. */
+export type Fit = "in_tune" | "partly" | "missed";
+
+export type Feedback = {
+  fit: Fit;
+  /** What the other person was feeling. */
+  feeling: Emotion;
+  /** 1-3 things that showed it, e.g. "slow, quiet voice". */
+  cues: string[];
+  /** One sentence. */
+  wentWell: string;
+  /** One sentence. */
+  tryThis: string;
+  /** A reply that would have fitted better. */
+  exampleReply: string;
+  usedHint: boolean;
+};
+
+export type ScenarioTurn =
+  /** Spoken in the calm narrator voice. */
+  | { role: "narrator"; text: string }
+  /** Spoken in the character voice, in this emotion. */
+  | { role: "character"; text: string; emotion: Emotion }
+  | { role: "user"; text: string }
+  | { role: "feedback"; feedback: Feedback }
+  | { role: "hint"; level: 1 | 2; text: string }
+  | { role: "wrapup"; text: string };
+
+export type Scenario = {
+  id: string;
+  /** e.g. "After the interview". Safe to show. */
+  title: string;
+  /** e.g. "Sam". */
+  characterName: string;
+  /** What the character feels. The answer: do not show before feedback. */
+  emotion: Emotion;
+  turns: ScenarioTurn[];
+  /** Replies the person has made so far, 0-3. */
+  exchanges: number;
+  /** True after the wrap-up. */
+  done: boolean;
+};
+
+export type ConversationResult = { emotion: Emotion; fit: Fit; usedHint: boolean };
+export type ConversationProgress = { results: ConversationResult[] };
+
+// POST /api/conversation (JSON)
+export type ConversationRequest =
+  | { action: "start"; progress: ConversationProgress }
+  | { action: "reply"; scenario: Scenario; text: string; progress: ConversationProgress }
+  | { action: "hint"; scenario: Scenario; progress: ConversationProgress };
+
+/** Always the whole updated scenario. The page replaces its copy. */
+export type ConversationResponse = {
+  scenario: Scenario;
+  progress: ConversationProgress;
+  mock: boolean;
+};
+
+/** Replies per scenario before the wrap-up. */
+export const EXCHANGES_PER_SCENARIO = 3;
+/** Hints available per reply. */
+export const HINTS_PER_TURN = 2;
