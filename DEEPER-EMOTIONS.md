@@ -12,14 +12,14 @@ and edit only that person's files.**
 
 | Emotion | Why it's hard | Example |
 |---|---|---|
-| **Sarcastic** | The words say one thing and the voice says the opposite | "Oh, great. Another meeting." said flat and drawn out |
-| **Frustrated** | Like angry, but smaller and aimed at a situation, not a person | "It's frozen again. Of course it is." |
-| **Disappointed** | Like sad, but about something that didn't happen as hoped | "Oh. They picked someone else." |
-| **Nervous** | Like afraid, but about something coming up | "I've got my driving test tomorrow." |
-| **Excited** | Like happy, but faster and looking forward | "We're actually going this weekend!" |
-| **Embarrassed** | Quiet, quick, wants to move on | "Can we just forget I said that?" |
-| **Bored** | Flat and slow, easy to mistake for calm or sad | "Yeah. Sounds fine." |
-| **Relieved** | Happy, but after worry; a breath out | "Oh, thank goodness. It's fine." |
+| **Sarcastic** | The words say one thing and the voice says the opposite | "Yeah, that went really well." said a little dry, after something went badly |
+| **Frustrated** | Like angry, but smaller and aimed at a situation, not a person | "It's not loading again. I'll just try later." |
+| **Disappointed** | Like sad, but about something that didn't happen as hoped | "Oh, okay. No, that's fine. Maybe next time." |
+| **Nervous** | Like afraid, but about something coming up | "I think it'll be fine. I just haven't done one before." |
+| **Excited** | Like happy, but faster and looking forward | "Wait, so we're actually going? That's amazing." |
+| **Embarrassed** | Quiet, quick, wants to move on | "Oh. Yeah, I meant the other one. Anyway." |
+| **Bored** | Flat and slow, easy to mistake for calm or sad | "Mm. Yeah, I guess we could do that." |
+| **Relieved** | Happy, but after worry; a breath out | "Oh, okay. Good. I thought I'd left it on the train." |
 
 These are grouped as **Basics** (the current five) and **Deeper** (the eight
 above). Each deeper emotion is close to a basic one, which is exactly what the
@@ -31,9 +31,16 @@ disappointed through sad.
 
 Sarcasm is the one where tone and words disagree, so the AI teaches it as a
 mismatch. It plays the same words said sincerely and sarcastically, side by
-side ("Oh, great!" happy, then "Oh, great." sarcastic), and asks which one
+side ("Yeah, that went really well!" happy, then the same words sarcastic), and asks which one
 meant it. In conversation mode, a good reply to sarcasm responds to what the
 person really means, not to their literal words.
+
+### Subtle, not exaggerated
+
+Deeper emotions are kept realistic: ordinary words someone might really say,
+which could be meant sincerely, with a mild voice. Stock phrases that announce
+the emotion ("Oh, great", "Best day ever") are avoided. The obvious cases are
+not what people with alexithymia struggle with; the everyday subtle ones are.
 
 ## How the person chooses
 

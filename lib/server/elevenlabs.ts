@@ -12,16 +12,17 @@ const VOICE_TAGS: Record<Emotion, string> = {
   angry: "[angry, loud, sharp voice]",
   afraid: "[afraid, shaky, breathless voice]",
   neutral: "[calm, steady, neutral voice]",
-  // Deeper emotions. ElevenLabs names [sarcastic] as a supported tag; the
-  // rest are described in words. Check each by ear (task DA5).
-  sarcastic: "[sarcastic, dry, drawn-out voice]",
-  frustrated: "[frustrated, exasperated, tense voice]",
-  disappointed: "[disappointed, deflated, quiet voice]",
-  nervous: "[nervous, hesitant, slightly shaky voice]",
-  excited: "[excited, fast, energetic voice]",
-  embarrassed: "[embarrassed, sheepish, quiet and hurried voice]",
-  bored: "[bored, flat, slow, uninterested voice]",
-  relieved: "[relieved, relaxed voice, letting out a breath]",
+  // Deeper emotions, kept mild on purpose: real people rarely sound like a
+  // drama exercise, and practising on exaggerated voices doesn't carry over to
+  // everyday life. Check each by ear (task DA5): too subtle is also a failure.
+  sarcastic: "[dry, understated, slightly sarcastic voice]",
+  frustrated: "[mildly frustrated, tired voice]",
+  disappointed: "[quietly disappointed voice]",
+  nervous: "[a little nervous, slightly unsure voice]",
+  excited: "[excited but natural, upbeat voice]",
+  embarrassed: "[a bit embarrassed, awkward voice]",
+  bored: "[mildly bored, low-energy voice]",
+  relieved: "[relieved, warm, relaxed voice]",
 };
 
 /**

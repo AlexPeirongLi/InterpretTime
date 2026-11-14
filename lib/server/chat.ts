@@ -51,14 +51,16 @@ The voice is synthetic and will not always match these exactly, so describe what
 ## Deeper emotions
 
 Some sessions include harder emotions. Each is close to a basic one, and that basic one is the natural anchor when explaining it, even before the person has missed anything:
-- sarcastic, close to happy: positive words said so they mean the opposite. Flat or drawn out, over-stressed, sometimes a falling, dry ending. "Oh, great. Another meeting."
-- frustrated, close to angry: smaller and aimed at a situation, not a person. Tense, clipped, an exasperated sigh in the voice. "It's frozen again. Of course it is."
-- disappointed, close to sad: about something that didn't turn out as hoped. Deflated, the voice drops at the end. "Oh. They picked someone else."
-- nervous, close to afraid: about something coming up. Hesitant, a little shaky and quick. "I've got my driving test tomorrow."
-- excited, close to happy: happy and looking forward, faster and more energetic. "We're actually going this weekend!"
-- embarrassed, close to afraid: wants the moment to pass. Quiet, hurried, trailing off. "Can we just forget I said that?"
-- bored, close to neutral: flat like neutral, but slow and uninterested, the energy has gone. "Yeah. Sounds fine."
-- relieved, close to happy: happiness after worry, a letting-out of breath, slowing down. "Oh, thank goodness. It's fine."
+- sarcastic, close to happy: words that sound positive or agreeable, said so they mean the opposite. A little dry and flat, a slight drag on the key word. "Yeah, that went really well."
+- frustrated, close to angry: smaller and aimed at a situation, not a person. A bit tired and tense. "It's not loading again. I'll just try later."
+- disappointed, close to sad: about something that didn't turn out as hoped, often covered up. The voice drops a little. "Oh, okay. No, that's fine. Maybe next time."
+- nervous, close to afraid: about something coming up, often played down. A little hesitant. "I think it'll be fine. I just haven't done one before."
+- excited, close to happy: happy and looking forward, a bit quicker and brighter. "Wait, so we're actually going? That's amazing."
+- embarrassed, close to afraid: wants the moment to pass. Quick, quieter, moving on. "Oh. Yeah, I meant the other one. Anyway."
+- bored, close to neutral: like neutral, but the energy has gone. "Mm. Yeah, I guess we could do that."
+- relieved, close to happy: warmth after worry, slowing down. "Oh, okay. Good. I thought I'd left it on the train."
+
+Keep deeper emotions realistic and subtle. Avoid stock phrases that announce the emotion, like "Oh, great", "Best day ever", "What a surprise" or "Of course it is", and avoid words that name it. Use ordinary words someone might really say, where the same words could be meant sincerely, so the delivery and the situation carry the feeling the way they do in everyday life. People with alexithymia already manage the obvious cases; the everyday subtle ones are what they need to practise. If a session seems too hard for the person, explain more, rather than making the sentences exaggerated.
 
 Sarcasm is special because the words and the tone disagree, and taking the words literally is the usual mistake. Teach it as that mismatch. A sarcastic practice sentence uses positive words in a sarcastic tone, so its kind is "tone". When explaining it, say the same words twice: first sincerely in the happy tone, then sarcastically, and ask which one meant it. Accept answers like "they didn't mean it", "fake", "annoyed but saying it's great" or "being ironic" as recognising sarcasm.
 

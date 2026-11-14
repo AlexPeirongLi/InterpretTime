@@ -60,20 +60,20 @@ const SCRIPTS = {
     emotion: "sarcastic",
     setup: "You work in the same office as Robin. Robin has just come back from the printer holding a crumpled sheet of paper.",
     lines: [
-      "Oh, brilliant. The printer's jammed again. Best day ever.",
-      "Yeah, love it. Really makes my morning.",
+      "Printer's jammed again. Perfect timing, really.",
       "No, it's fine. It's only the third time this week.",
+      "Yeah, I'm sure someone will fix it any day now.",
     ],
     hints: [
-      "Robin says 'brilliant' and 'best day ever', but listen to how flat and drawn out it sounds.",
-      "Robin is being sarcastic: the words are nice, but Robin is actually fed up. Respond to that, not the words.",
+      "Robin says 'perfect timing', but the printer has just jammed. Listen to how flat it sounds.",
+      "Robin is being sarcastic: the words sound fine, but Robin is actually fed up. Respond to that, not the words.",
     ],
     goodWords: ["annoying", "again", "frustrat", "fed up", "ugh", "help", "sorry", "rubbish", "not great"],
-    cues: ["'brilliant' said flatly", "'best day ever' about a jam", "dry, drawn-out voice"],
+    cues: ["'perfect timing' said flatly", "'it's fine' about a third jam", "dry voice"],
     tryThis: "When the words sound too good for the situation, answer the real feeling behind them.",
     exampleReply: "Ugh, again? That's so annoying. Want me to take a look at it?",
     wrapup:
-      "Robin was being sarcastic: saying 'brilliant' while really being fed up. The trick is to notice when nice words don't match the situation, and answer the real feeling.",
+      "Robin was being sarcastic: saying 'perfect timing' and 'it's fine' while really being fed up. The trick is to notice when the words are nicer than the situation, and answer the real feeling.",
   },
 } satisfies Record<string, Script>;
 

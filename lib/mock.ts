@@ -25,11 +25,12 @@ const BASIC_SCRIPT: Practice[] = [
   { emotion: "afraid", kind: "tone", phrase: "Someone is at the door." },
 ];
 
+// Kept realistic and subtle: ordinary words that could be meant sincerely.
 const DEEPER_SCRIPT: Practice[] = [
-  { emotion: "sarcastic", kind: "tone", phrase: "Oh, great. Another meeting." },
-  { emotion: "disappointed", kind: "both", phrase: "Oh. They picked someone else." },
-  { emotion: "nervous", kind: "tone", phrase: "I've got my driving test tomorrow." },
-  { emotion: "bored", kind: "tone", phrase: "Yeah. Sounds fine." },
+  { emotion: "sarcastic", kind: "tone", phrase: "Yeah, that went really well." },
+  { emotion: "disappointed", kind: "both", phrase: "Oh, okay. No, that's fine. Maybe next time." },
+  { emotion: "nervous", kind: "tone", phrase: "I think it'll be fine. I just haven't done one before." },
+  { emotion: "bored", kind: "tone", phrase: "Mm. Yeah, I guess we could do that." },
 ];
 
 const SCRIPTS: Record<EmotionSet, Practice[]> = {
