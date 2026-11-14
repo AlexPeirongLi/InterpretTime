@@ -1,7 +1,25 @@
 // The contract between the website (Person B) and the server routes (Person A).
 // See PLAN.md. Do not change these shapes without telling the other person.
 
-export type Emotion = "happy" | "sad" | "angry" | "afraid" | "neutral";
+export type Emotion =
+  // Basics
+  | "happy"
+  | "sad"
+  | "angry"
+  | "afraid"
+  | "neutral"
+  // Deeper (see DEEPER-EMOTIONS.md)
+  | "sarcastic"
+  | "frustrated"
+  | "disappointed"
+  | "nervous"
+  | "excited"
+  | "embarrassed"
+  | "bored"
+  | "relieved";
+
+/** Which emotions to practise. Missing means "basics". */
+export type EmotionSet = "basics" | "both" | "deeper";
 
 // What carries the emotion in a practice sentence:
 // "words" = emotional words in a flat voice, "tone" = plain words in an
@@ -35,7 +53,7 @@ export type Attempt = {
 export type Profile = { attempts: Attempt[] };
 
 // POST /api/chat (JSON). An empty history starts the conversation.
-export type ChatRequest = { history: Turn[]; profile: Profile };
+export type ChatRequest = { history: Turn[]; profile: Profile; emotionSet?: EmotionSet };
 export type ChatResponse = { reply: AiTurn; profile: Profile; mock: boolean };
 
 // Which voice speaks a segment. Conversation mode uses both; Quickfire only
@@ -103,6 +121,8 @@ export type Scenario = {
   done: boolean;
   /** How long the conversation lasts. Missing on older saved scenarios: "quick". */
   length?: ConversationLength;
+  /** Which emotions this conversation uses. Missing means "basics". */
+  emotionSet?: EmotionSet;
 };
 
 /** How many replies a conversation lasts. Feedback is shown at the end. */
@@ -120,7 +140,7 @@ export type ConversationProgress = { results: ConversationResult[] };
 
 // POST /api/conversation (JSON)
 export type ConversationRequest =
-  | { action: "start"; progress: ConversationProgress; length?: ConversationLength }
+  | { action: "start"; progress: ConversationProgress; length?: ConversationLength; emotionSet?: EmotionSet }
   | {
       action: "reply";
       scenario: Scenario;

@@ -6,11 +6,19 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { messageOf, postChat } from "@/lib/client/api";
-import { clearConversation, loadConversation, saveConversation, type Saved } from "@/lib/client/storage";
+import {
+  clearConversation,
+  loadConversation,
+  loadEmotionSet,
+  saveConversation,
+  saveEmotionSet,
+  type Saved,
+} from "@/lib/client/storage";
 import { useVoice } from "@/lib/client/useVoice";
-import { emptyProfile } from "@/lib/profile";
-import type { Profile, Turn } from "@/lib/types";
+import { emptyProfile, readyForDeeper } from "@/lib/profile";
+import type { EmotionSet, Profile, Turn } from "@/lib/types";
 import { AnswerBox } from "./AnswerBox";
+import { EmotionSetPicker } from "./EmotionSetPicker";
 import { Notice } from "./Notice";
 import { ProfilePanel } from "./ProfilePanel";
 import { Transcript, turnKey } from "./Transcript";
@@ -25,6 +33,9 @@ export default function Conversation() {
   const [waiting, setWaiting] = useState(() => needsReply(saved.history));
   const [chatError, setChatError] = useState<string | null>(null);
   const [mock, setMock] = useState(false);
+  // Which emotions to practise. A change applies from the next practice sentence.
+  const [emotionSet, setEmotionSet] = useState<EmotionSet>(() => loadEmotionSet());
+  const [suggestionDismissed, setSuggestionDismissed] = useState(false);
   const voice = useVoice();
   const { play, stop } = voice;
 
@@ -33,12 +44,20 @@ export default function Conversation() {
   const initial = useRef(saved);
   const started = useRef(false);
   const bottom = useRef<HTMLDivElement>(null);
+  // Read when a request is sent, so a change applies without resending anything.
+  const emotionSetNow = useRef(emotionSet);
+
+  const changeEmotionSet = (set: EmotionSet) => {
+    setEmotionSet(set);
+    emotionSetNow.current = set;
+    saveEmotionSet(set);
+  };
 
   const requestReply = useCallback(
     async (history: Turn[], profile: Profile) => {
       const gen = generation.current;
       try {
-        const response = await postChat({ history, profile });
+        const response = await postChat({ history, profile, emotionSet: emotionSetNow.current });
         if (gen !== generation.current) return;
         const next: Saved = { history: [...history, response.reply], profile: response.profile };
         setSaved(next);
@@ -108,6 +127,7 @@ export default function Conversation() {
   };
 
   const stuck = chatError !== null && needsReply(saved.history);
+  const suggestDeeper = emotionSet === "basics" && !suggestionDismissed && readyForDeeper(saved.profile);
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-4 sm:px-6 lg:flex-row lg:items-start">
@@ -128,10 +148,36 @@ export default function Conversation() {
           </button>
         </header>
 
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-zinc-600 dark:text-zinc-300">Emotions:</span>
+          <EmotionSetPicker value={emotionSet} onChange={changeEmotionSet} compact />
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">Changes apply from the next sentence.</span>
+        </div>
+
+        {suggestDeeper && (
+          <Notice tone="info">
+            <span className="flex flex-wrap items-center justify-between gap-3">
+              You recognise most of the basic emotions now. Want to try deeper ones, like sarcasm?
+              <span className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => changeEmotionSet("both")}
+                  className="rounded-lg bg-sky-700 px-3 py-1.5 font-medium text-white hover:bg-sky-800"
+                >
+                  Add deeper emotions
+                </button>
+                <button type="button" onClick={() => setSuggestionDismissed(true)} className="px-2 py-1.5 underline">
+                  Not now
+                </button>
+              </span>
+            </span>
+          </Notice>
+        )}
+
         <details className="rounded-xl ring-1 ring-zinc-200 lg:hidden dark:ring-zinc-800">
           <summary className="cursor-pointer px-4 py-3 text-sm font-medium">What you recognise so far</summary>
           <div className="px-4 pb-4">
-            <ProfilePanel profile={saved.profile} />
+            <ProfilePanel profile={saved.profile} emotionSet={emotionSet} />
           </div>
         </details>
 
@@ -196,7 +242,7 @@ export default function Conversation() {
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
           What you recognise so far
         </h2>
-        <ProfilePanel profile={saved.profile} />
+        <ProfilePanel profile={saved.profile} emotionSet={emotionSet} />
       </aside>
     </div>
   );

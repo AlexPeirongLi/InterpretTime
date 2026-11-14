@@ -1,7 +1,15 @@
 // Saves the conversation and profile in this browser, so a reload carries on
 // where the person left off. Nothing is sent anywhere else.
 
-import type { Baseline, ConversationLength, ConversationProgress, Profile, Scenario, Turn } from "@/lib/types";
+import type {
+  Baseline,
+  ConversationLength,
+  ConversationProgress,
+  EmotionSet,
+  Profile,
+  Scenario,
+  Turn,
+} from "@/lib/types";
 
 const KEY = "interprettime:conversation:v1";
 
@@ -95,6 +103,28 @@ export function clearScenario(): void {
     window.localStorage.removeItem(SCENARIO_KEY);
   } catch {
     // Nothing to clear.
+  }
+}
+
+// Which emotions to practise (Basics, Basics + deeper, Deeper only). Shared by
+// both modes, so the choice carries over.
+const EMOTION_SET_KEY = "interprettime:emotion-set:v1";
+
+export function loadEmotionSet(): EmotionSet {
+  try {
+    const value = window.localStorage.getItem(EMOTION_SET_KEY);
+    if (value === "basics" || value === "both" || value === "deeper") return value;
+  } catch {
+    // Fall through to the default.
+  }
+  return "basics";
+}
+
+export function saveEmotionSet(set: EmotionSet): void {
+  try {
+    window.localStorage.setItem(EMOTION_SET_KEY, set);
+  } catch {
+    // Only a convenience.
   }
 }
 

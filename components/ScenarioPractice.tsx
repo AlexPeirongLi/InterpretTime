@@ -10,7 +10,9 @@ import { turnsSegments } from "@/lib/client/scenarioSpeech";
 import {
   clearScenario,
   loadBaseline,
+  loadEmotionSet,
   loadLength,
+  saveEmotionSet,
   loadScenario,
   saveLength,
   saveScenario,
@@ -22,6 +24,7 @@ import {
   HINTS_PER_TURN,
   type Baseline,
   type ConversationLength,
+  type EmotionSet,
   type ConversationProgress,
   type ConversationRequest,
   type ConversationResponse,
@@ -29,6 +32,8 @@ import {
   type Scenario,
 } from "@/lib/types";
 import { AnswerBox, type Spoken } from "./AnswerBox";
+import { readyForDeeperConversation } from "@/lib/client/progress";
+import { EmotionSetPicker } from "./EmotionSetPicker";
 import { FitProgress } from "./FitProgress";
 import { LengthPicker } from "./LengthPicker";
 import { Notice } from "./Notice";
@@ -54,6 +59,13 @@ export default function ScenarioPractice() {
   // after each review.
   const [choosing, setChoosing] = useState(() => saved.scenario === null);
   const [lastLength, setLastLength] = useState<ConversationLength | null>(() => loadLength());
+  // Which emotions the next conversation uses. Chosen next to the length.
+  const [emotionSet, setEmotionSet] = useState<EmotionSet>(() => loadEmotionSet());
+  const [suggestionDismissed, setSuggestionDismissed] = useState(false);
+  const changeEmotionSet = (set: EmotionSet) => {
+    setEmotionSet(set);
+    saveEmotionSet(set);
+  };
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<ErrorState | null>(null);
   const [mock, setMock] = useState(false);
@@ -107,7 +119,7 @@ export default function ScenarioPractice() {
     setWaiting("start");
     setError(null);
     try {
-      await call({ action: "start", progress: currentProgress, length }, null);
+      await call({ action: "start", progress: currentProgress, length, emotionSet }, null);
     } catch (e) {
       setError({ message: messageOf(e), retry: { action: "start", length } });
     } finally {
@@ -247,7 +259,7 @@ export default function ScenarioPractice() {
 
   const progressSection = (
     <div className="flex flex-col gap-3">
-      <FitProgress progress={progress} />
+      <FitProgress progress={progress} emotionSet={scenario?.emotionSet ?? emotionSet} />
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
@@ -323,7 +335,29 @@ export default function ScenarioPractice() {
         {voice.error && <Notice tone="warn">{voice.error} You can still read the conversation.</Notice>}
 
         {choosing ? (
-          <LengthPicker last={lastLength} disabled={waiting !== null} onPick={pickLength} />
+          <div className="flex flex-col gap-5">
+            {emotionSet === "basics" && !suggestionDismissed && readyForDeeperConversation(progress) && (
+              <Notice tone="info">
+                <span className="flex flex-wrap items-center justify-between gap-3">
+                  You&apos;re replying in tune to most of the basic emotions. Want to try deeper ones, like sarcasm?
+                  <span className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => changeEmotionSet("both")}
+                      className="rounded-lg bg-sky-700 px-3 py-1.5 font-medium text-white hover:bg-sky-800"
+                    >
+                      Add deeper emotions
+                    </button>
+                    <button type="button" onClick={() => setSuggestionDismissed(true)} className="px-2 py-1.5 underline">
+                      Not now
+                    </button>
+                  </span>
+                </span>
+              </Notice>
+            )}
+            <EmotionSetPicker value={emotionSet} onChange={changeEmotionSet} disabled={waiting !== null} />
+            <LengthPicker last={lastLength} disabled={waiting !== null} onPick={pickLength} />
+          </div>
         ) : (
           scenario && (
             <ScenarioTranscript

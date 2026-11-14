@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { CUE_KINDS, EMOTIONS } from "@/lib/emotions";
-import type { AiTurn, Attempt, ChatResponse, Profile, Segment, Turn } from "@/lib/types";
+import { CLOSEST_BASIC, CUE_KINDS, DEEPER_EMOTIONS, EMOTIONS, emotionsFor } from "@/lib/emotions";
+import type { AiTurn, Attempt, ChatResponse, EmotionSet, Profile, Segment, Turn } from "@/lib/types";
 import { askClaude, speakable } from "./claude";
 import { UpstreamError } from "./env";
 
@@ -10,7 +10,7 @@ You talk with one person, out loud. Everything you write is turned into speech b
 
 ## How a turn works
 
-You write your turn as a list of segments. Each segment is spoken in one tone: happy, sad, angry, afraid or neutral. Changing tone between segments is how you let the person hear what an emotion sounds like.
+You write your turn as a list of segments. Each segment is spoken in one tone. Changing tone between segments is how you let the person hear what an emotion sounds like. Each turn you are told which emotions this session practises: practice sentences only use those. Your own talk is always neutral.
 
 In most turns you say one practice sentence: an everyday sentence in a tone you choose, marked example: true. Then you ask how it sounded to them. Ask openly ("How did that sound to you?") instead of offering choices, because finding their own word for it is part of the practice. Nothing in the turn should name or hint at the emotion of a practice sentence before they have answered.
 
@@ -48,9 +48,25 @@ What the tones typically sound like:
 
 The voice is synthetic and will not always match these exactly, so describe what an emotion usually sounds like instead of insisting on what they must have heard.
 
+## Deeper emotions
+
+Some sessions include harder emotions. Each is close to a basic one, and that basic one is the natural anchor when explaining it, even before the person has missed anything:
+- sarcastic, close to happy: positive words said so they mean the opposite. Flat or drawn out, over-stressed, sometimes a falling, dry ending. "Oh, great. Another meeting."
+- frustrated, close to angry: smaller and aimed at a situation, not a person. Tense, clipped, an exasperated sigh in the voice. "It's frozen again. Of course it is."
+- disappointed, close to sad: about something that didn't turn out as hoped. Deflated, the voice drops at the end. "Oh. They picked someone else."
+- nervous, close to afraid: about something coming up. Hesitant, a little shaky and quick. "I've got my driving test tomorrow."
+- excited, close to happy: happy and looking forward, faster and more energetic. "We're actually going this weekend!"
+- embarrassed, close to afraid: wants the moment to pass. Quiet, hurried, trailing off. "Can we just forget I said that?"
+- bored, close to neutral: flat like neutral, but slow and uninterested, the energy has gone. "Yeah. Sounds fine."
+- relieved, close to happy: happiness after worry, a letting-out of breath, slowing down. "Oh, thank goodness. It's fine."
+
+Sarcasm is special because the words and the tone disagree, and taking the words literally is the usual mistake. Teach it as that mismatch. A sarcastic practice sentence uses positive words in a sarcastic tone, so its kind is "tone". When explaining it, say the same words twice: first sincerely in the happy tone, then sarcastically, and ask which one meant it. Accept answers like "they didn't mean it", "fake", "annoyed but saying it's great" or "being ironic" as recognising sarcasm.
+
+For the other deeper emotions, accept the close basic word as partly right but not recognised: "sad" for disappointed is close, so say so warmly, then explain the difference. Use the closest basic emotion as the anchor in the comparison, unless the record shows a better one.
+
 ## When they get one
 
-Say so briefly. If they mentioned what gave it away, confirm it. Then make the next one a little harder: move from "both" to "tone" to "words", vary the emotions, and include neutral now and then, because "nothing in particular" is a real answer too.
+Say so briefly. If they mentioned what gave it away, confirm it. Then make the next one a little harder: move from "both" to "tone" to "words", and vary the emotions. When neutral is in this session's list, include it now and then, because "nothing in particular" is a real answer too.
 
 ## Writing for the ear
 
@@ -108,12 +124,26 @@ function describeProfile(profile: Profile): string {
     .join("\n");
 }
 
-function buildUserMessage(history: Turn[], profile: Profile): string {
+function describeSet(set: EmotionSet): string {
+  const emotions = emotionsFor(set);
+  const lines = [`Practice sentences in this session use only these emotions: ${emotions.join(", ")}.`];
+  if (set !== "basics") {
+    lines.push(
+      "Deeper emotions and the basic emotion each is closest to: " +
+        DEEPER_EMOTIONS.map((e) => `${e} (close to ${CLOSEST_BASIC[e]})`).join(", ") +
+        ". You can still use any basic tone in a comparison, even when the session is deeper only.",
+    );
+  }
+  return lines.join("\n");
+}
+
+function buildUserMessage(history: Turn[], profile: Profile, set: EmotionSet): string {
   const task =
     history.length === 0
       ? "Write your opening turn."
       : "Write your next turn. If the person's latest message answers a practice sentence, fill in the assessment for it.";
   return [
+    `<emotions>\n${describeSet(set)}\n</emotions>`,
     `<record>\n${describeProfile(profile)}\n</record>`,
     `<conversation>\n${describeHistory(history)}\n</conversation>`,
     task,
@@ -127,8 +157,8 @@ function cleanSegments(segments: Reply["segments"]): Segment[] {
 }
 
 /** Asks Claude for the AI's next turn and the updated record of attempts. */
-export async function chat(history: Turn[], profile: Profile): Promise<ChatResponse> {
-  const parsed: Reply = await askClaude(SYSTEM_PROMPT, buildUserMessage(history, profile), replySchema);
+export async function chat(history: Turn[], profile: Profile, set: EmotionSet = "basics"): Promise<ChatResponse> {
+  const parsed: Reply = await askClaude(SYSTEM_PROMPT, buildUserMessage(history, profile, set), replySchema);
   const segments = cleanSegments(parsed.segments);
   if (segments.length === 0) {
     throw new UpstreamError("Claude's answer could not be read.");

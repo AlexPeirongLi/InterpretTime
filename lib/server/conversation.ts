@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { currentFeeling, hintsThisTurn, repliesFor } from "@/lib/conversation";
-import { EMOTIONS } from "@/lib/emotions";
+import { EMOTIONS, emotionsFor } from "@/lib/emotions";
 import {
   HINTS_PER_TURN,
   REPLIES_BY_LENGTH,
   type ConversationLength,
+  type EmotionSet,
   type ConversationProgress,
   type ConversationResponse,
   type Emotion,
@@ -43,12 +44,28 @@ After the user replies, the character answers what they actually said. A warm re
 
 In a longer conversation, let the scene develop like a real one: the character says more about what happened, asks the user things, reacts to how the conversation is going. Do not repeat the same point, and do not wrap the conversation up early: there should still be something to talk about until the last reply.
 
+## Deeper emotions
+
+Some sessions include harder emotions, each close to a basic one. When a character feels one, show it the way real people do:
+- sarcastic (close to happy): says something positive while meaning the opposite. "Oh, brilliant. The printer's jammed again." Usually covering annoyance or disappointment. The character's emotion for these lines is sarcastic.
+- frustrated (close to angry): fed up with a situation rather than a person, tense and clipped.
+- disappointed (close to sad): something didn't turn out as hoped, deflated.
+- nervous (close to afraid): worried about something coming up.
+- excited (close to happy): looking forward to something, energetic.
+- embarrassed (close to afraid): wants a moment to pass, may laugh it off or change the subject.
+- bored (close to neutral): flat, uninterested, short answers.
+- relieved (close to happy): a worry has just gone away.
+
+Each turn you are told which emotions this session uses. Keep the character's lines to those, plus neutral when the feeling has genuinely faded.
+
 ## Feedback
 
 You judge how well the reply fitted the character's feeling:
 - in_tune: the reply shows they noticed the feeling, said or implied, and responds in a way that suits it: comfort or interest for sad, sharing the good news for happy, reassurance for afraid, acknowledging the problem without escalating for angry, a normal friendly answer for calm.
 - partly: polite or on topic, but the feeling is not picked up, or they jump to advice or a change of subject before acknowledging it.
 - missed: the reply clashes with the feeling, like being cheerful at someone sad, brushing it off, or arguing back at someone angry.
+
+For deeper emotions, a fitting reply: to sarcasm, responds to what they really mean rather than the literal words ("That's the third time this week, isn't it?" not "Great, glad it's going well"), and taking sarcasm literally is the classic miss; to frustration, acknowledges how annoying it is before offering help; to disappointment, recognises the letdown rather than rushing to cheer them up; to nervousness, reassures about the specific worry; to excitement, shares the enthusiasm and asks about it; to embarrassment, makes it easy to move on and does not dwell or tease; to boredom, checks in or changes to something more engaging; to relief, shares the relief.
 
 There is no single right answer and people respond in different styles. Judge whether it would land well with this person in this moment, not whether it matches a script. Short, plain replies can be fully in tune. Be honest but kind, and never mock or lecture.
 
@@ -69,7 +86,7 @@ A hint helps the user before they reply. A level 1 hint points at one or two cue
 ## Tone of voice
 
 When the user speaks their reply, you also get a short description of how their voice sounded: pitch, how much it moved, loudness, pace and pauses, measured by the website and compared with a recording of their normal voice. You cannot hear the audio yourself, only this description. Judge how well their tone suited what the character was feeling, separately from their words, and fill in "tone":
-- fit: in_tune, partly or missed, using the same idea as for words. Roughly, someone sad or afraid is helped by a voice that is a little slower, softer and steady; someone happy by a livelier, brighter voice that shares the mood; someone angry by a calm, even voice that does not rise to meet theirs; someone calm by an ordinary relaxed voice. A voice close to their normal one is fine for most situations, so treat it as at least partly in tune, and in tune for a calm character.
+- fit: in_tune, partly or missed, using the same idea as for words. Roughly, someone sad or afraid is helped by a voice that is a little slower, softer and steady; someone happy by a livelier, brighter voice that shares the mood; someone angry by a calm, even voice that does not rise to meet theirs; someone calm by an ordinary relaxed voice. For deeper emotions, go by the closest basic one: a frustrated or sarcastic person is helped by a calm, even voice; a disappointed, nervous or embarrassed person by a softer, steady one; an excited or relieved person by a livelier, warm one; a bored person by an ordinary or slightly livelier one. The measurements cannot detect sarcasm in the user's own voice, so never claim they sounded sarcastic. A voice close to their normal one is fine for most situations, so treat it as at least partly in tune, and in tune for a calm character.
 - heard: how their voice seemed to come across, in a few plain words, like "quick and a little louder than usual" or "slow and soft". Only describe what the measurements say, and say "seemed" or "came across as", because a measurement is not certain.
 - tip: one short spoken sentence on what to try with their voice next time, or what to keep doing.
 
@@ -120,9 +137,14 @@ const FIT_SCORE: Record<Fit, number> = { in_tune: 1, partly: 0.5, missed: 0 };
  * Leans towards emotions the person has practised least or found hardest, but
  * never repeats the last one twice in a row and keeps some variety.
  */
-export function pickEmotion(progress: ConversationProgress, random = Math.random): Emotion {
+export function pickEmotion(
+  progress: ConversationProgress,
+  set: EmotionSet = "basics",
+  random = Math.random,
+): Emotion {
   const last = progress.results.at(-1)?.emotion;
-  const ranked = EMOTIONS.filter((e) => e !== last)
+  const ranked = emotionsFor(set)
+    .filter((e) => e !== last)
     .map((e) => {
       const results = progress.results.filter((r) => r.emotion === e);
       const score = results.length
@@ -156,8 +178,13 @@ function describeTurn(turn: ScenarioTurn, name: string): string {
   }
 }
 
+function describeSet(set: EmotionSet = "basics"): string {
+  return `Emotions this session uses: ${emotionsFor(set).join(", ")}.`;
+}
+
 function describeScenario(scenario: Scenario): string {
   return [
+    describeSet(scenario.emotionSet),
     `<scenario title="${scenario.title}" character="${scenario.characterName}">`,
     ...scenario.turns.map((t) => describeTurn(t, scenario.characterName)),
     "</scenario>",
@@ -180,12 +207,14 @@ function describeProgress(progress: ConversationProgress): string {
 export async function startScenario(
   progress: ConversationProgress,
   length: ConversationLength = "quick",
+  emotionSet: EmotionSet = "basics",
 ): Promise<ConversationResponse> {
-  const feeling = pickEmotion(progress);
+  const feeling = pickEmotion(progress, emotionSet);
   const replies = REPLIES_BY_LENGTH[length];
   const started = await askClaude(
     SYSTEM_PROMPT,
     [
+      describeSet(emotionSet),
       describeProgress(progress),
       `Write a new scenario where the character is feeling ${feeling}. Make it different from anything obvious or repeated: pick a fresh everyday situation. The conversation will last ${replies} replies, so choose a situation with enough in it to talk about for that long.`,
     ].join("\n\n"),
@@ -204,6 +233,7 @@ export async function startScenario(
     exchanges: 0,
     done: false,
     length,
+    emotionSet,
   };
   return { scenario, progress, mock: false };
 }

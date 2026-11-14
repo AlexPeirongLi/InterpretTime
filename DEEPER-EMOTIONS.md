@@ -74,16 +74,20 @@ Shared files, changed by Person A in task DA0 and merged into `main` first:
   optional `emotionSet: "basics" | "both" | "deeper"`. Missing means
   "basics", so nothing that works now changes.
 
+Status: everything except DA5 was built together by Alex's Claude on the
+`alex` branch, and tested free in the scripted mode. DA5, the listening check,
+waits for Alex's go-ahead because it costs ElevenLabs credit.
+
 ### Person A tasks
 
-- [ ] DA0. New emotions and the emotion-set choice in the shared files, merged
+- [x] DA0. New emotions and the emotion-set choice in the shared files, merged
       into `main` **first**
-- [ ] DA1. Voice instructions for each new emotion
-- [ ] DA2. Quickfire prompt: deeper emotions, the closest-basic link, sarcasm
+- [x] DA1. Voice instructions for each new emotion
+- [x] DA2. Quickfire prompt: deeper emotions, the closest-basic link, sarcasm
       taught as words versus tone
-- [ ] DA3. Conversation prompt: deeper-emotion scenes, and what a fitting reply
+- [x] DA3. Conversation prompt: deeper-emotion scenes, and what a fitting reply
       looks like for each
-- [ ] DA4. Both routes accept the emotion set and only use emotions from it
+- [x] DA4. Both routes accept the emotion set and only use emotions from it
 - [ ] DA5. Listening check: one short clip per new emotion for you to listen
       to. **This costs ElevenLabs credit, about 1,000–1,500 credits for 8 clips
       in 2 voices, so it only runs when you say so.** Any emotion that doesn't
@@ -91,11 +95,11 @@ Shared files, changed by Person A in task DA0 and merged into `main` first:
 
 ### Person B tasks
 
-- [ ] DB1. Emotion-set choice (Basics / Basics + deeper / Deeper only) in both
+- [x] DB1. Emotion-set choice (Basics / Basics + deeper / Deeper only) in both
       modes, remembered in the browser
-- [ ] DB2. Send the choice with every request
-- [ ] DB3. Progress panels in both modes: Basics and Deeper sections
-- [ ] DB4. Colours and labels for the new emotions; the suggestion to try
+- [x] DB2. Send the choice with every request
+- [x] DB3. Progress panels in both modes: Basics and Deeper sections
+- [x] DB4. Colours and labels for the new emotions; the suggestion to try
       deeper ones once the basics are mostly recognised
 
 ## Testing without spending credit
