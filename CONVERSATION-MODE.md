@@ -95,19 +95,19 @@ Person B can start straight away:
 
 ### Person B tasks
 
-- [ ] CB1. Start page: choose Quickfire or Conversation. Call `/talk`
+- [x] CB1. Start page: choose Quickfire or Conversation. Call `/talk`
       "Quickfire" on screen.
-- [ ] CB2. `/conversation` page: shows the scene and the conversation, and
+- [x] CB2. `/conversation` page: shows the scene and the conversation, and
       plays each new turn out loud through `/api/speak`
-- [ ] CB3. Reply box: reuse `components/AnswerBox.tsx` (typing and microphone)
-- [ ] CB4. Feedback cards: fit (In tune / Partly / Missed), the feeling and
+- [x] CB3. Reply box: reuse `components/AnswerBox.tsx` (typing and microphone)
+- [x] CB4. Feedback cards: fit (In tune / Partly / Missed), the feeling and
       cues, what went well, what to try, example reply. Read out in the
       narrator voice.
-- [ ] CB5. Hint button, and the "Take your time. Want a hint?" note after 20
+- [x] CB5. Hint button, and the "Take your time. Want a hint?" note after 20
       seconds of no typing or recording
-- [ ] CB6. Progress section for this mode (per emotion: In tune / Partly /
+- [x] CB6. Progress section for this mode (per emotion: In tune / Partly /
       Missed counts), saved in the browser, with its own Start again button
-- [ ] CB7. Wrap-up and "Next scenario" button, styling, works on a phone
+- [x] CB7. Wrap-up and "Next scenario" button, styling, works on a phone
 
 ## The contract between the two halves
 

@@ -3,6 +3,8 @@
 import type {
   ChatRequest,
   ChatResponse,
+  ConversationRequest,
+  ConversationResponse,
   SpeakRequest,
   TranscribeResponse,
 } from "@/lib/types";
@@ -46,6 +48,10 @@ const json = (body: unknown): RequestInit => ({
 
 export async function postChat(request: ChatRequest): Promise<ChatResponse> {
   return (await send("/api/chat", json(request))).json();
+}
+
+export async function postConversation(request: ConversationRequest): Promise<ConversationResponse> {
+  return (await send("/api/conversation", json(request))).json();
 }
 
 export async function postSpeak(segments: SpeakRequest["segments"]): Promise<Blob> {
