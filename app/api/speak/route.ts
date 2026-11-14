@@ -1,12 +1,24 @@
+import { speak } from "@/lib/server/elevenlabs";
+import { env, UpstreamError } from "@/lib/server/env";
 import { jsonError } from "@/lib/server/http";
 import { readJson, speakRequestSchema } from "@/lib/server/validate";
 
-// POST /api/speak — the AI's turn in, one mp3 out.
-// Not built yet: answers 503 like it will when no ElevenLabs key is set.
-// The real voice replaces it on the voice-ai branch (task A2 in PLAN.md).
+// POST /api/speak — segments in, one mp3 out, each segment in its own tone.
 export async function POST(request: Request): Promise<Response> {
   const body = await readJson(request, speakRequestSchema);
   if ("response" in body) return body.response;
 
-  return jsonError(503, "Voice is not set up yet.");
+  const apiKey = env.elevenLabsKey;
+  if (!apiKey) return jsonError(503, "Voice is not set up yet.");
+
+  try {
+    const audio = await speak(apiKey, body.data.segments);
+    return new Response(audio, {
+      headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store" },
+    });
+  } catch (error) {
+    if (error instanceof UpstreamError) return jsonError(502, error.message);
+    console.error("Speak route failed:", error);
+    return jsonError(502, "Could not make the voice.");
+  }
 }

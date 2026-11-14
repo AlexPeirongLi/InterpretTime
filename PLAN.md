@@ -65,6 +65,10 @@ them without telling the other person first:
 
 ### Person A tasks
 
+Status: A1–A3 are written and handle missing or rejected keys correctly. They
+have not been run with real keys yet, so they stay unticked until someone has
+heard the voice and seen a real AI turn.
+
 - [x] A0. Set up the project, shared files and this plan (on `main`)
 - [ ] A1. `POST /api/chat` — conversation so far in, the AI's next turn out
 - [ ] A2. `POST /api/speak` — the AI's turn in, one mp3 out, each part in its tone
