@@ -1,9 +1,8 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 import { CUE_KINDS, EMOTIONS } from "@/lib/emotions";
 import type { AiTurn, Attempt, ChatResponse, Profile, Segment, Turn } from "@/lib/types";
-import { env, UpstreamError } from "./env";
+import { askClaude, speakable } from "./claude";
+import { UpstreamError } from "./env";
 
 const SYSTEM_PROMPT = `You are the voice of InterpretTime, a website where people practise recognising emotion in speech. The people who use it find emotions hard to read. Many have alexithymia. They have chosen to practise, and you are their practice partner.
 
@@ -121,54 +120,17 @@ function buildUserMessage(history: Turn[], profile: Profile): string {
   ].join("\n\n");
 }
 
-/** Square brackets would be read by the voice as audio tags. */
 function cleanSegments(segments: Reply["segments"]): Segment[] {
   return segments
-    .map((s) => ({ ...s, text: s.text.replace(/[[\]]/g, " ").replace(/\s+/g, " ").trim() }))
+    .map((s) => ({ ...s, text: speakable(s.text) }))
     .filter((s) => s.text.length > 0);
 }
 
-let client: Anthropic | undefined;
-
 /** Asks Claude for the AI's next turn and the updated record of attempts. */
 export async function chat(history: Turn[], profile: Profile): Promise<ChatResponse> {
-  // Reads ANTHROPIC_API_KEY from the environment.
-  client ??= new Anthropic({ timeout: 60_000, maxRetries: 1 });
-
-  let message;
-  try {
-    message = await client.beta.messages.parse({
-      model: env.chatModel,
-      max_tokens: 16000,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: buildUserMessage(history, profile) }],
-      // Low effort keeps the wait before the voice answers short.
-      output_config: { effort: "low", format: betaZodOutputFormat(replySchema) },
-      // If the model declines a request, the API retries it on a fallback model.
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-    });
-  } catch (error) {
-    if (error instanceof Anthropic.AuthenticationError) {
-      throw new UpstreamError("The Claude API key was rejected.");
-    }
-    if (error instanceof Anthropic.RateLimitError) {
-      throw new UpstreamError("Claude is busy. Try again in a moment.");
-    }
-    if (error instanceof Anthropic.APIError) {
-      console.error(`Claude request failed: ${error.status} ${error.message}`);
-      throw new UpstreamError("Claude could not answer.");
-    }
-    throw error;
-  }
-
-  if (message.stop_reason === "refusal") {
-    throw new UpstreamError("Claude declined to answer that.");
-  }
-  const parsed = message.parsed_output;
-  const segments = parsed ? cleanSegments(parsed.segments) : [];
-  if (!parsed || segments.length === 0) {
-    console.error(`Claude reply was unusable (stop_reason: ${message.stop_reason})`);
+  const parsed: Reply = await askClaude(SYSTEM_PROMPT, buildUserMessage(history, profile), replySchema);
+  const segments = cleanSegments(parsed.segments);
+  if (segments.length === 0) {
     throw new UpstreamError("Claude's answer could not be read.");
   }
 
