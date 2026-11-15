@@ -91,15 +91,17 @@ export async function speak(apiKey: string, segments: Segments, userVoiceId?: st
   const voiceIdFor = (voice: Voice) =>
     voice === "user" ? userVoiceId! : voice === "character" ? env.characterVoiceId : env.voiceId;
 
+  const settingsFor = (voice: Voice) => (voice === "user" ? USER_VOICE_SETTINGS : undefined);
+
   // One voice (all of Quickfire): stream it straight through.
-  if (runs.length === 1) return speakOneVoice(apiKey, voiceIdFor(runs[0].voice), runs[0].segments);
+  if (runs.length === 1) return speakOneVoice(apiKey, voiceIdFor(runs[0].voice), runs[0].segments, settingsFor(runs[0].voice));
 
   // Several voices: one request each, then joined in order. MP3 files with the
   // same format play back to back when joined like this. The requests go one
   // after another because the free ElevenLabs plan allows only 2 at once.
   const parts: Uint8Array[] = [];
   for (const run of runs) {
-    const stream = await speakOneVoice(apiKey, voiceIdFor(run.voice), run.segments);
+    const stream = await speakOneVoice(apiKey, voiceIdFor(run.voice), run.segments, settingsFor(run.voice));
     parts.push(new Uint8Array(await new Response(stream).arrayBuffer()));
   }
   const joined = new Uint8Array(parts.reduce((size, part) => size + part.length, 0));
@@ -111,16 +113,30 @@ export async function speak(apiKey: string, segments: Segments, userVoiceId?: st
   return joined;
 }
 
+/**
+ * For the person's own voice copy: stick as closely as possible to their real
+ * voice. similarity_boost is "how closely the AI should adhere to the original
+ * voice" (0-1, default 0.75) and use_speaker_boost "boosts the similarity to
+ * the original speaker", per the ElevenLabs voice settings docs. Stability is
+ * left at its default so the requested tone still comes through.
+ */
+const USER_VOICE_SETTINGS = { similarity_boost: 0.95, use_speaker_boost: true };
+
 async function speakOneVoice(
   apiKey: string,
   voiceId: string,
   segments: Segments,
+  voiceSettings?: Record<string, number | boolean>,
 ): Promise<ReadableStream<Uint8Array>> {
   const url = `${API}/v1/text-to-speech/${encodeURIComponent(voiceId)}?output_format=mp3_44100_128`;
   const response = await fetch(url, {
     method: "POST",
     headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
-    body: JSON.stringify({ text: buildScript(segments), model_id: env.ttsModel }),
+    body: JSON.stringify({
+      text: buildScript(segments),
+      model_id: env.ttsModel,
+      ...(voiceSettings ? { voice_settings: voiceSettings } : {}),
+    }),
   });
   if (!response.ok || !response.body) throw await failure("make the voice", response);
   return response.body;

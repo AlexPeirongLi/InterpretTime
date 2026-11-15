@@ -11,7 +11,9 @@ import { saveBaseline, saveVoiceCopy } from "@/lib/client/storage";
 import { useRecorder } from "@/lib/client/useRecorder";
 import type { Baseline } from "@/lib/types";
 
-// About 45-60 seconds read aloud: long enough for a usable voice copy.
+// About 1½-2 minutes read aloud: ElevenLabs suggests 1-2 minutes for a voice
+// copy that sounds close. A mix of statements, questions and an exclamation
+// gives it more of the person's natural range.
 const PASSAGE = [
   "Today I'm going to practise a few short conversations, speaking in my normal, everyday voice.",
   "I'll read this the way I usually talk, not too fast and not too slow.",
@@ -19,13 +21,20 @@ const PASSAGE = [
   "Sometimes I go for a walk if the weather is good, and sometimes I just stay in and read.",
   "At the weekend I might meet up with friends, cook something simple, or watch a film.",
   "It doesn't have to be anything special.",
-  "I'm just reading this so the website can hear what my voice usually sounds like, and that's all there is to it.",
+  "I'm just reading this so the website can hear what my voice usually sounds like.",
+  "Last week I tried a new recipe, and honestly, it didn't go to plan. The sauce was far too salty, so we ordered food instead.",
+  "Have you ever had a day like that? Where nothing quite works, but it somehow turns out fine in the end?",
+  "I like hearing about other people's plans too. Someone told me they were going camping by a lake, which sounded lovely.",
+  "I'd probably forget the tent pegs, though!",
+  "Reading out loud feels a bit strange at first, but it gets easier after a sentence or two.",
+  "I'll keep going a little longer, so there's plenty of my voice to work with.",
+  "That's nearly the end now. Thanks for listening.",
 ];
 const PASSAGE_WORDS = PASSAGE.join(" ").split(/\s+/).length;
 /** Less speech than this and the tone measurement is not worth keeping. */
 const MIN_SPEECH_SECONDS = 2;
 /** A voice copy needs more: roughly half the passage at least. */
-const MIN_COPY_SECONDS = 25;
+const MIN_COPY_SECONDS = 40;
 
 type Props = {
   /** True when a baseline is already saved and this is a redo. */
@@ -85,7 +94,7 @@ export function VoiceBaseline({ redo, existingCopy, copyByDefault = false, onDon
       if (delivery.speechSeconds < MIN_COPY_SECONDS || !audio) {
         setSavedWithoutCopy(baseline);
         setError(
-          "Your normal voice is saved, but a voice copy needs more: read the whole passage, at least about half a minute.",
+          "Your normal voice is saved, but a voice copy needs more: read the whole passage, at least about 40 seconds of it.",
         );
         return;
       }
@@ -118,7 +127,7 @@ export function VoiceBaseline({ redo, existingCopy, copyByDefault = false, onDon
         </h2>
         <p className="mt-1 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
           When you speak a reply, I can also tell you how your voice came across. First I need to hear your normal
-          voice. Tap record and read this out the way you usually talk. It takes about a minute.
+          voice. Tap record and read this out the way you usually talk. It takes about 1½ to 2 minutes. For a voice copy that sounds like you: somewhere quiet, the same distance from the microphone throughout, and read naturally, as if talking to a friend.
         </p>
       </div>
       <div className="flex flex-col gap-2 rounded-xl bg-white px-4 py-3 leading-relaxed dark:bg-zinc-950">
