@@ -5,7 +5,6 @@
 // conversations. Opening costs nothing; play buttons on the pages use credit.
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   clearConversation,
@@ -87,10 +86,12 @@ const SECTIONS: { heading: string; steps: Step[] }[] = [
 ];
 
 export function DemoLauncher() {
-  const router = useRouter();
   const [cleared, setCleared] = useState(false);
 
-  const go = (step: Step) => router.push(step.open());
+  // A full page load, not router.push: Next.js keeps visited pages alive in
+  // the background, so a client-side visit would show the last scene again
+  // instead of the one just saved.
+  const go = (step: Step) => window.location.assign(step.open());
 
   const clearDemo = () => {
     clearScenario();
