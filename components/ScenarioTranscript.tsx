@@ -154,14 +154,20 @@ export function ScenarioTranscript({
           <span className="font-medium">Try it {better}:</span> “{reply}”
         </p>
         <div className="flex flex-wrap gap-2">
-          {voiceCopy && canPlay && (
+          {canPlay && (
             <PlayButton
-              label="Hear it in your voice"
+              // With a voice copy, their own voice; without one, the narrator,
+              // so the better tone can always be heard.
+              label={voiceCopy ? "Hear it in your voice" : "Hear it said that way"}
               small
               active={voice.activeKey === inVoiceKey}
               status={voice.status}
               onPlay={() =>
-                onPlay([{ text: reply, emotion: feedback.feeling, voice: "user", delivery: better }], inVoiceKey, voiceCopy)
+                onPlay(
+                  [{ text: reply, emotion: feedback.feeling, voice: voiceCopy ? "user" : "narrator", delivery: better }],
+                  inVoiceKey,
+                  voiceCopy ?? undefined,
+                )
               }
               onStop={onStop}
             />
@@ -179,7 +185,7 @@ export function ScenarioTranscript({
         </div>
         {!voiceCopy && (
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            To hear this in your own voice, redo your normal voice from Progress and tick the voice copy box.
+            To hear this in your own voice, set up a voice copy from Progress.
           </p>
         )}
       </div>
