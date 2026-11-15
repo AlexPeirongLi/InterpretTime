@@ -1,12 +1,6 @@
 import { EMOTION_SETS, EMOTION_SET_LABELS } from "@/lib/emotions";
 import type { EmotionSet } from "@/lib/types";
 
-const HELP: Record<EmotionSet, string> = {
-  basics: "Happy, sad, angry, afraid and calm.",
-  both: "The basics plus harder ones like sarcasm, frustration and disappointment.",
-  deeper: "Only the harder ones: sarcastic, frustrated, disappointed, nervous, excited, embarrassed, bored, relieved.",
-};
-
 type Props = {
   value: EmotionSet;
   onChange: (set: EmotionSet) => void;
@@ -30,7 +24,7 @@ export function EmotionSetPicker({ value, onChange, disabled, compact }: Props) 
             onClick={() => onChange(set)}
             className={`rounded-lg font-medium transition disabled:opacity-50 ${compact ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm"} ${
               value === set
-                ? "bg-white text-teal-800 shadow-sm dark:bg-zinc-950 dark:text-teal-300"
+                ? "bg-white text-orange-800 shadow-sm dark:bg-zinc-950 dark:text-orange-300"
                 : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
             }`}
           >
@@ -38,7 +32,6 @@ export function EmotionSetPicker({ value, onChange, disabled, compact }: Props) 
           </button>
         ))}
       </div>
-      {!compact && <p className="text-xs text-zinc-500 dark:text-zinc-400">{HELP[value]}</p>}
     </fieldset>
   );
 }

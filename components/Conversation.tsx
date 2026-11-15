@@ -132,11 +132,11 @@ export default function Conversation() {
   const choices = emotionSet === "basics" ? BASIC_EMOTIONS : EMOTIONS;
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-4 sm:px-6 lg:flex-row lg:items-start">
+    <div className="panel mx-auto my-3 flex w-[calc(100%-1.5rem)] max-w-5xl flex-1 flex-col gap-6 px-4 py-4 sm:my-6 sm:px-6 lg:flex-row lg:items-start">
       <div className="flex min-w-0 flex-1 flex-col gap-4">
         <header className="flex items-center justify-between gap-3">
           <p className="flex items-baseline gap-2">
-            <Link href="/" className="font-semibold tracking-tight">
+            <Link href="/" className="logo text-lg font-black tracking-tight">
               InterpretTime
             </Link>
             <span className="text-sm text-zinc-500 dark:text-zinc-400">Quickfire</span>
@@ -212,7 +212,7 @@ export default function Conversation() {
 
         {waiting && (
           <p role="status" className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-            <span className="size-2 animate-pulse rounded-full bg-teal-600" aria-hidden />
+            <span className="size-2 animate-pulse rounded-full bg-orange-600" aria-hidden />
             {saved.history.length === 0 ? "Getting ready…" : "Thinking…"}
           </p>
         )}
@@ -242,7 +242,7 @@ export default function Conversation() {
               type="button"
               disabled={waiting || stuck}
               onClick={() => send(EMOTION_LABELS[emotion])}
-              className="rounded-full px-5 py-3 text-base font-medium ring-1 ring-zinc-300 transition hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-40 dark:ring-zinc-700 dark:hover:bg-teal-950/40"
+              className="rounded-full px-5 py-3 text-base font-medium ring-1 ring-zinc-300 transition hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-40 dark:ring-zinc-700 dark:hover:bg-orange-950/40"
             >
               {EMOTION_LABELS[emotion]}
             </button>

@@ -91,7 +91,7 @@ function AiMessage({
   return (
     <div className="flex flex-col gap-2 rounded-2xl rounded-tl-sm bg-white p-4 shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
       <div className="flex items-center justify-end gap-2">
-        {speaking && <span className="text-sm text-teal-700 dark:text-teal-300">speaking…</span>}
+        {speaking && <span className="text-sm text-orange-700 dark:text-orange-300">speaking…</span>}
         <PlayButton
           label="Replay"
           small
@@ -152,7 +152,7 @@ export function Transcript({ history, voice, onPlay, onStop }: Props) {
               onStop={onStop}
             />
           ) : (
-            <p className="max-w-[85%] rounded-2xl rounded-tr-sm bg-teal-700 px-4 py-3 leading-relaxed text-white">
+            <p className="max-w-[85%] rounded-2xl rounded-tr-sm bg-orange-700 px-4 py-3 leading-relaxed text-white">
               <span className="sr-only">You: </span>
               {turn.text}
             </p>
