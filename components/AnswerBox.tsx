@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { messageOf } from "@/lib/client/api";
 import { useRecorder } from "@/lib/client/useRecorder";
 import type { Delivery } from "@/lib/types";
@@ -23,6 +23,13 @@ type Props = {
   help?: string;
   /** Tell the person when their tone could not be measured (conversation mode). */
   checksTone?: boolean;
+  /**
+   * When this changes to a new value, recording starts by itself (once the box
+   * is enabled). Used to start recording after the voice has finished talking.
+   */
+  autoRecordToken?: string | null;
+  /** Called when a recording started this way, so the parent can clear the token. */
+  onAutoRecordStarted?: () => void;
 };
 
 const countWords = (text: string) => text.split(/\s+/).filter(Boolean).length;
@@ -35,6 +42,8 @@ export function AnswerBox({
   placeholder = "How did it sound to you?",
   help = "Tap the microphone to speak, then check the words and send. Or just type.",
   checksTone = false,
+  autoRecordToken = null,
+  onAutoRecordStarted,
 }: Props) {
   const [text, setText] = useState("");
   const [spoken, setSpoken] = useState<Spoken | null>(null);
@@ -78,6 +87,18 @@ export function AnswerBox({
       setError(messageOf(e));
     }
   };
+
+  const handledToken = useRef<string | null>(null);
+  const beginAutoRecord = useEffectEvent((token: string) => {
+    if (recording || transcribing) return;
+    handledToken.current = token;
+    onAutoRecordStarted?.();
+    void toggleMic();
+  });
+  useEffect(() => {
+    if (!autoRecordToken || disabled || handledToken.current === autoRecordToken) return;
+    beginAutoRecord(autoRecordToken);
+  }, [autoRecordToken, disabled]);
 
   return (
     <form
@@ -145,9 +166,9 @@ export function AnswerBox({
         <p className="text-xs text-teal-800 dark:text-teal-300">
           Your tone was measured. Check the words, then send.
         </p>
-      ) : (
+      ) : help ? (
         <p className="text-xs text-zinc-500 dark:text-zinc-400">{help}</p>
-      )}
+      ) : null}
     </form>
   );
 }

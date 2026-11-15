@@ -15,6 +15,9 @@ export type VoiceState = {
   error: string | null;
   /** The browser blocked sound until the person clicks. Holds what to play. */
   blocked: { segments: Segments; key: string } | null;
+  /** The clip that last finished playing by itself, and how many have. A stop or an error does not count. */
+  endedKey: string | null;
+  endedCount: number;
 };
 
 /**
@@ -28,6 +31,8 @@ export function useVoice() {
     unavailable: null,
     error: null,
     blocked: null,
+    endedKey: null,
+    endedCount: 0,
   });
   const audio = useRef<HTMLAudioElement | null>(null);
   const cache = useRef(new Map<string, string>());
@@ -70,7 +75,9 @@ export function useVoice() {
     const player = (audio.current ??= new Audio());
     player.src = url;
     player.onended = () => {
-      if (id === current.current) setState((s) => ({ ...s, status: "idle", activeKey: null }));
+      if (id === current.current) {
+        setState((s) => ({ ...s, status: "idle", activeKey: null, endedKey: key, endedCount: s.endedCount + 1 }));
+      }
     };
     try {
       setState((s) => ({ ...s, status: "playing" }));

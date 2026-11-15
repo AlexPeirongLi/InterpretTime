@@ -58,7 +58,17 @@ export default function ScenarioPractice() {
   // Choosing how long the next conversation lasts: at the very start, and
   // after each review.
   const [choosing, setChoosing] = useState(() => saved.scenario === null);
-  const [lastLength, setLastLength] = useState<ConversationLength | null>(() => loadLength());
+  const [lastLength, setLastLength] = useState<ConversationLength>(() => loadLength() ?? "medium");
+  // Start recording by itself once the voice has finished talking.
+  const [autoRecordOn, setAutoRecordOn] = useState(true);
+  // The clip that, when it ends, should start the recording (the newest lines).
+  const [autoKey, setAutoKey] = useState<string | null>(null);
+  // Changing the switch forgets the clip waiting for it, so turning it on
+  // never starts a recording for a voice that already finished.
+  const changeAutoRecord = (on: boolean) => {
+    setAutoRecordOn(on);
+    setAutoKey(null);
+  };
   // Which emotions the next conversation uses. Chosen next to the length.
   const [emotionSet, setEmotionSet] = useState<EmotionSet>(() => loadEmotionSet());
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
@@ -68,15 +78,15 @@ export default function ScenarioPractice() {
   };
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<ErrorState | null>(null);
-  const [mock, setMock] = useState(false);
   // The reply turn ("<scenario id>:<exchanges>") the person started answering,
   // and the one the "Take your time" note was shown for.
   const [activeTurn, setActiveTurn] = useState<string | null>(null);
   const [nudgeTurn, setNudgeTurn] = useState<string | null>(null);
-  // The person's normal voice, for tone feedback. The card asking for it shows
-  // until they record it or choose "Not now" (asked again on the next visit).
+  // The person's normal voice, for tone feedback. The card asking for it opens
+  // only when they choose it, from the link under the reply box.
   const [baseline, setBaseline] = useState<Baseline | null>(() => loadBaseline());
-  const [askBaseline, setAskBaseline] = useState(() => baseline === null);
+  const [askBaseline, setAskBaseline] = useState(false);
+  const [showProgress, setShowProgress] = useState(false);
 
   const voice = useVoice();
   const { play, stop } = voice;
@@ -100,7 +110,6 @@ export default function ScenarioPractice() {
       const next: SavedScenario = { scenario: response.scenario, progress: response.progress };
       setSaved(next);
       saveScenario(next);
-      setMock(response.mock);
 
       // Play only the turns that are new since the last copy.
       const known = before && before.id === response.scenario.id ? before.turns.length : 0;
@@ -108,7 +117,9 @@ export default function ScenarioPractice() {
       const firstSpoken = response.scenario.turns.findIndex((t, i) => i >= known && t.role !== "user");
       const segments = turnsSegments(added, response.scenario);
       if (segments.length && firstSpoken >= 0) {
-        void play(segments, scenarioTurnKey(response.scenario, firstSpoken));
+        const key = scenarioTurnKey(response.scenario, firstSpoken);
+        setAutoKey(response.scenario.done ? null : key);
+        void play(segments, key);
       }
       return response;
     },
@@ -130,8 +141,12 @@ export default function ScenarioPractice() {
   const pickLength = (length: ConversationLength) => {
     saveLength(length);
     setLastLength(length);
+  };
+
+  const beginScenario = () => {
+    saveLength(lastLength);
     setChoosing(false);
-    void startScenario(progress, length);
+    void startScenario(progress, lastLength);
   };
 
   // On arrival in the middle of a scenario, play where it is up to once: the
@@ -211,7 +226,6 @@ export default function ScenarioPractice() {
     setSaved(fresh());
     setPending(null);
     setError(null);
-    setMock(false);
     setChoosing(true);
   };
 
@@ -251,7 +265,7 @@ export default function ScenarioPractice() {
       type="button"
       onClick={() => void askHint()}
       disabled={!hintAllowed}
-      className="shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium text-sky-800 ring-1 ring-sky-300 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-sky-200 dark:ring-sky-800 dark:hover:bg-sky-950"
+      className="shrink-0 py-1 text-sm font-medium text-sky-800 underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:no-underline disabled:opacity-40 dark:text-sky-200"
     >
       {waiting === "hint" ? "Getting a hint…" : hintsLeft > 0 ? `Hint (${hintsLeft} left)` : "No hints left"}
     </button>
@@ -271,53 +285,59 @@ export default function ScenarioPractice() {
         </button>
         <button
           type="button"
-          onClick={() => setAskBaseline(true)}
-          disabled={askBaseline}
+          onClick={() => {
+            setAskBaseline(true);
+            setShowProgress(false);
+          }}
+          disabled={askBaseline || choosing}
           className="rounded-lg px-3 py-1.5 text-sm text-zinc-600 ring-1 ring-zinc-300 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-300 dark:ring-zinc-700 dark:hover:bg-zinc-800"
         >
-          {baseline ? "Redo normal voice" : "Record normal voice"}
+          {baseline ? "Redo my normal voice" : "Set up tone feedback"}
         </button>
       </div>
     </div>
   );
 
+  const total = scenario ? repliesFor(scenario) : 0;
+  const step = scenario ? (scenario.done ? total : Math.min(scenario.exchanges + 1, total)) : 0;
+
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-4 sm:px-6 lg:flex-row lg:items-start">
-      <div className="flex min-w-0 flex-1 flex-col gap-4">
-        <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-          <p className="flex items-baseline gap-2">
-            <Link href="/" className="font-semibold tracking-tight">
-              InterpretTime
-            </Link>
-            <span className="text-sm text-zinc-500 dark:text-zinc-400">Conversation</span>
-          </p>
-          {scenario && (
-            <p className="text-sm text-zinc-600 dark:text-zinc-300">
-              <span className="font-medium">{scenario.title}</span>
-              <span className="text-zinc-500 dark:text-zinc-400">
-                {" · "}
-                {scenario.done
-                  ? "finished"
-                  : `reply ${Math.min(scenario.exchanges + 1, repliesFor(scenario))} of ${repliesFor(scenario)}`}
-              </span>
-            </p>
-          )}
+    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 px-4 py-4 sm:px-6">
+      <div className="flex min-w-0 flex-1 flex-col gap-5">
+        <header className="flex items-center justify-between gap-3">
+          <Link href="/" className="font-semibold tracking-tight">
+            InterpretTime
+          </Link>
+          <button
+            type="button"
+            onClick={() => setShowProgress((open) => !open)}
+            aria-expanded={showProgress}
+            className="rounded-lg px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            Progress
+          </button>
         </header>
 
-        <details className="rounded-xl ring-1 ring-zinc-200 lg:hidden dark:ring-zinc-800">
-          <summary className="cursor-pointer px-4 py-3 text-sm font-medium">Your progress in this mode</summary>
-          <div className="px-4 pb-4">{progressSection}</div>
-        </details>
+        {showProgress && (
+          <section aria-label="Your progress" className="rounded-xl p-4 ring-1 ring-zinc-200 dark:ring-zinc-800">
+            {progressSection}
+          </section>
+        )}
 
-        {mock && (
-          <Notice tone="info">
-            The AI is not connected, so this is a short scripted practice scenario. Add an ANTHROPIC_API_KEY
-            to turn on the real one.
-          </Notice>
+        {scenario && !choosing && (
+          <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
+            <span className="flex gap-1.5" aria-hidden>
+              {Array.from({ length: total }, (_, i) => (
+                <span
+                  key={i}
+                  className={`h-1.5 w-7 rounded-full ${i < step ? "bg-teal-700 dark:bg-teal-400" : "bg-zinc-300 dark:bg-zinc-700"}`}
+                />
+              ))}
+            </span>
+            <span>{scenario.done ? "Finished" : `Reply ${step} of ${total}`}</span>
+          </div>
         )}
-        {voice.unavailable && (
-          <Notice tone="warn">Voice is not set up yet, so you can only read the conversation for now.</Notice>
-        )}
+
         {voice.blocked && (
           <Notice tone="info">
             <span className="flex flex-wrap items-center justify-between gap-3">
@@ -357,6 +377,25 @@ export default function ScenarioPractice() {
             )}
             <EmotionSetPicker value={emotionSet} onChange={changeEmotionSet} disabled={waiting !== null} />
             <LengthPicker last={lastLength} disabled={waiting !== null} onPick={pickLength} />
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={beginScenario}
+                disabled={waiting !== null}
+                className="rounded-xl bg-teal-700 px-5 py-4 text-lg font-semibold text-white transition hover:bg-teal-800 disabled:opacity-50"
+              >
+                Start scenario
+              </button>
+              <label className="flex items-start gap-2 text-sm text-zinc-600 dark:text-zinc-300">
+                <input
+                  type="checkbox"
+                  checked={autoRecordOn}
+                  onChange={(event) => changeAutoRecord(event.target.checked)}
+                  className="mt-0.5 size-4 accent-teal-700"
+                />
+                Start recording my reply when the voice stops talking
+              </label>
+            </div>
           </div>
         ) : (
           scenario && (
@@ -420,18 +459,6 @@ export default function ScenarioPractice() {
 
         {scenario && !scenario.done && !choosing && (
           <div className="sticky bottom-0 -mx-4 flex flex-col gap-2 border-t border-zinc-200 bg-[var(--background)] px-4 pb-4 pt-3 sm:-mx-6 sm:px-6 dark:border-zinc-800">
-            <div className="flex items-center justify-between gap-3">
-              {showNudge ? (
-                <p role="status" className="text-sm text-sky-900 dark:text-sky-200">
-                  Take your time. Want a hint?
-                </p>
-              ) : (
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                  Reply to {scenario.characterName} as you would in real life. Feedback comes at the end.
-                </p>
-              )}
-              {hintButton}
-            </div>
             <AnswerBox
               disabled={!myTurn}
               onSend={send}
@@ -441,21 +468,44 @@ export default function ScenarioPractice() {
               }}
               onType={markActive}
               placeholder={`Say something to ${scenario.characterName}…`}
-              help="Tap the microphone to speak your reply and get feedback on your tone too. Or just type."
+              help=""
               checksTone
+              autoRecordToken={autoRecordOn && autoKey && voice.endedKey === autoKey ? `${autoKey}:${voice.endedCount}` : null}
+              onAutoRecordStarted={() => setAutoKey(null)}
             />
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+              {hintButton}
+              <button
+                type="button"
+                onClick={() => changeAutoRecord(!autoRecordOn)}
+                aria-pressed={autoRecordOn}
+                className="py-1 text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-300"
+              >
+                Auto-record: {autoRecordOn ? "on" : "off"}
+              </button>
+              {showNudge ? (
+                <p role="status" className="text-sm text-sky-900 dark:text-sky-200">
+                  Take your time. Want a hint?
+                </p>
+              ) : (
+                baseline === null &&
+                !askBaseline && (
+                  <button
+                    type="button"
+                    onClick={() => setAskBaseline(true)}
+                    className="py-1 text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-300"
+                  >
+                    Set up tone feedback (optional)
+                  </button>
+                )
+              )}
+            </div>
           </div>
         )}
         {/* After the reply bar, so scrolling here shows the newest turn above it. */}
         <div ref={bottom} />
       </div>
 
-      <aside className="hidden w-72 shrink-0 lg:sticky lg:top-4 lg:block">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-          Your progress in this mode
-        </h2>
-        {progressSection}
-      </aside>
     </div>
   );
 }

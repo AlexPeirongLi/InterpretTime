@@ -15,9 +15,9 @@ import {
   type Saved,
 } from "@/lib/client/storage";
 import { useVoice } from "@/lib/client/useVoice";
+import { BASIC_EMOTIONS, EMOTIONS, EMOTION_LABELS } from "@/lib/emotions";
 import { emptyProfile, readyForDeeper } from "@/lib/profile";
 import type { EmotionSet, Profile, Turn } from "@/lib/types";
-import { AnswerBox } from "./AnswerBox";
 import { EmotionSetPicker } from "./EmotionSetPicker";
 import { Notice } from "./Notice";
 import { ProfilePanel } from "./ProfilePanel";
@@ -128,6 +128,8 @@ export default function Conversation() {
 
   const stuck = chatError !== null && needsReply(saved.history);
   const suggestDeeper = emotionSet === "basics" && !suggestionDismissed && readyForDeeper(saved.profile);
+  // What the person can tap: every emotion when deeper ones are in use, otherwise the basics.
+  const choices = emotionSet === "basics" ? BASIC_EMOTIONS : EMOTIONS;
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-4 sm:px-6 lg:flex-row lg:items-start">
@@ -233,8 +235,18 @@ export default function Conversation() {
 
         <div ref={bottom} />
 
-        <div className="sticky bottom-0 -mx-4 border-t border-zinc-200 bg-[var(--background)] px-4 pb-4 pt-3 sm:-mx-6 sm:px-6 dark:border-zinc-800">
-          <AnswerBox disabled={waiting || stuck} onSend={send} onRecordStart={stop} />
+        <div className="sticky bottom-0 -mx-4 flex flex-wrap justify-center gap-2 border-t border-zinc-200 bg-[var(--background)] px-4 py-4 sm:-mx-6 sm:px-6 dark:border-zinc-800">
+          {choices.map((emotion) => (
+            <button
+              key={emotion}
+              type="button"
+              disabled={waiting || stuck}
+              onClick={() => send(EMOTION_LABELS[emotion])}
+              className="rounded-full px-5 py-3 text-base font-medium ring-1 ring-zinc-300 transition hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-40 dark:ring-zinc-700 dark:hover:bg-teal-950/40"
+            >
+              {EMOTION_LABELS[emotion]}
+            </button>
+          ))}
         </div>
       </div>
 

@@ -59,7 +59,8 @@ export function ProfilePanel({ profile, emotionSet = "basics" }: { profile: Prof
         </div>
       </details>
       <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-        An emotion shows as recognised when you got the latest one right. Saved in this browser only.
+        An emotion shows as recognised once you get two in a row right, and goes back to learning after two
+        in a row wrong. Saved in this browser only.
       </p>
     </div>
   );
