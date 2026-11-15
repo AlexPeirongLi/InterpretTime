@@ -102,10 +102,6 @@ function FeedbackCard({
           <p className="text-zinc-600 dark:text-zinc-300">Your voice {feedback.tone.heard}.</p>
           <p className="text-zinc-600 dark:text-zinc-300">{feedback.tone.tip}</p>
           {yourVoice}
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Measured from your microphone, compared with your normal voice. It can be thrown off by noise, so treat it
-            as a rough guide.
-          </p>
         </div>
       )}
       {feedback.usedHint && (
