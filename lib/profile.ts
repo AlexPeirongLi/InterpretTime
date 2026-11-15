@@ -1,5 +1,5 @@
 import { BASIC_EMOTIONS, EMOTIONS } from "./emotions";
-import type { Emotion, Profile } from "./types";
+import type { Attempt, Emotion, Profile } from "./types";
 
 export type EmotionStatus = "not heard yet" | "learning" | "recognised";
 
@@ -17,21 +17,30 @@ export function emptyProfile(): Profile {
 }
 
 /**
- * Per-emotion counts for the profile side panel, in the order given.
- * An emotion counts as "recognised" once the person's most recent attempt at
- * it was right, so the panel moves as they learn.
+ * Needs two in a row right to become "recognised", and two in a row wrong to
+ * drop back to "learning". A single lucky guess or slip doesn't flip it.
  */
+function statusFromAttempts(attempts: Attempt[]): EmotionStatus {
+  if (attempts.length === 0) return "not heard yet";
+  let status: EmotionStatus = "learning";
+  let streak = 0;
+  for (const attempt of attempts) {
+    const matchesFlip = status === "learning" ? attempt.recognised : !attempt.recognised;
+    streak = matchesFlip ? streak + 1 : 0;
+    if (streak >= 2) {
+      status = status === "learning" ? "recognised" : "learning";
+      streak = 0;
+    }
+  }
+  return status;
+}
+
+/** Per-emotion counts for the profile side panel, in the order given. */
 export function summarise(profile: Profile, emotions: readonly Emotion[] = EMOTIONS): EmotionSummary[] {
   return emotions.map((emotion) => {
     const attempts = profile.attempts.filter((a) => a.emotion === emotion);
     const recognised = attempts.filter((a) => a.recognised).length;
-    const latest = attempts.at(-1);
-    const status: EmotionStatus = !latest
-      ? "not heard yet"
-      : latest.recognised
-        ? "recognised"
-        : "learning";
-    return { emotion, heard: attempts.length, recognised, status };
+    return { emotion, heard: attempts.length, recognised, status: statusFromAttempts(attempts) };
   });
 }
 

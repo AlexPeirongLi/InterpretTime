@@ -58,7 +58,17 @@ export default function ScenarioPractice() {
   // Choosing how long the next conversation lasts: at the very start, and
   // after each review.
   const [choosing, setChoosing] = useState(() => saved.scenario === null);
-  const [lastLength, setLastLength] = useState<ConversationLength | null>(() => loadLength());
+  const [lastLength, setLastLength] = useState<ConversationLength>(() => loadLength() ?? "medium");
+  // Start recording by itself once the voice has finished talking.
+  const [autoRecordOn, setAutoRecordOn] = useState(true);
+  // The clip that, when it ends, should start the recording (the newest lines).
+  const [autoKey, setAutoKey] = useState<string | null>(null);
+  // Changing the switch forgets the clip waiting for it, so turning it on
+  // never starts a recording for a voice that already finished.
+  const changeAutoRecord = (on: boolean) => {
+    setAutoRecordOn(on);
+    setAutoKey(null);
+  };
   // Which emotions the next conversation uses. Chosen next to the length.
   const [emotionSet, setEmotionSet] = useState<EmotionSet>(() => loadEmotionSet());
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
@@ -107,7 +117,9 @@ export default function ScenarioPractice() {
       const firstSpoken = response.scenario.turns.findIndex((t, i) => i >= known && t.role !== "user");
       const segments = turnsSegments(added, response.scenario);
       if (segments.length && firstSpoken >= 0) {
-        void play(segments, scenarioTurnKey(response.scenario, firstSpoken));
+        const key = scenarioTurnKey(response.scenario, firstSpoken);
+        setAutoKey(response.scenario.done ? null : key);
+        void play(segments, key);
       }
       return response;
     },
@@ -129,8 +141,12 @@ export default function ScenarioPractice() {
   const pickLength = (length: ConversationLength) => {
     saveLength(length);
     setLastLength(length);
+  };
+
+  const beginScenario = () => {
+    saveLength(lastLength);
     setChoosing(false);
-    void startScenario(progress, length);
+    void startScenario(progress, lastLength);
   };
 
   // On arrival in the middle of a scenario, play where it is up to once: the
@@ -361,6 +377,25 @@ export default function ScenarioPractice() {
             )}
             <EmotionSetPicker value={emotionSet} onChange={changeEmotionSet} disabled={waiting !== null} />
             <LengthPicker last={lastLength} disabled={waiting !== null} onPick={pickLength} />
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={beginScenario}
+                disabled={waiting !== null}
+                className="rounded-xl bg-teal-700 px-5 py-4 text-lg font-semibold text-white transition hover:bg-teal-800 disabled:opacity-50"
+              >
+                Start scenario
+              </button>
+              <label className="flex items-start gap-2 text-sm text-zinc-600 dark:text-zinc-300">
+                <input
+                  type="checkbox"
+                  checked={autoRecordOn}
+                  onChange={(event) => changeAutoRecord(event.target.checked)}
+                  className="mt-0.5 size-4 accent-teal-700"
+                />
+                Start recording my reply when the voice stops talking
+              </label>
+            </div>
           </div>
         ) : (
           scenario && (
@@ -435,9 +470,19 @@ export default function ScenarioPractice() {
               placeholder={`Say something to ${scenario.characterName}…`}
               help=""
               checksTone
+              autoRecordToken={autoRecordOn && autoKey && voice.endedKey === autoKey ? `${autoKey}:${voice.endedCount}` : null}
+              onAutoRecordStarted={() => setAutoKey(null)}
             />
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
               {hintButton}
+              <button
+                type="button"
+                onClick={() => changeAutoRecord(!autoRecordOn)}
+                aria-pressed={autoRecordOn}
+                className="py-1 text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-300"
+              >
+                Auto-record: {autoRecordOn ? "on" : "off"}
+              </button>
               {showNudge ? (
                 <p role="status" className="text-sm text-sky-900 dark:text-sky-200">
                   Take your time. Want a hint?

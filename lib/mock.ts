@@ -109,7 +109,7 @@ export function mockChat(history: Turn[], profile: Profile, set: EmotionSet = "b
     const reply: AiTurn = {
       role: "ai",
       segments: [
-        say("Hi. I'm your practice partner. I'll say a sentence, and you tell me how it sounds. There are no wrong answers."),
+        say("How does this sound?"),
         ...ask(next),
       ],
     };

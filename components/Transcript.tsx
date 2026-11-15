@@ -54,9 +54,9 @@ function PracticeSentence({
   playButton: React.ReactNode;
 }) {
   return (
-    <div className="my-1 rounded-xl border-2 border-teal-600/40 bg-teal-50 px-4 py-3 dark:border-teal-400/40 dark:bg-teal-950/40">
-      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-teal-800 dark:text-teal-300">
+    <div className="my-2 rounded-r-lg border-l-4 border-violet-600 bg-zinc-50 py-2.5 pl-4 pr-3 dark:border-violet-400 dark:bg-zinc-900/60">
+      <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">
           Practice sentence
         </span>
         {revealed ? (
@@ -65,8 +65,8 @@ function PracticeSentence({
           <span className="text-xs text-zinc-500 dark:text-zinc-400">How does it sound?</span>
         )}
       </div>
-      <p className="text-lg leading-snug">“{segment.text}”</p>
-      <div className="mt-2">{playButton}</div>
+      <p className="text-xl font-medium leading-snug">“{segment.text}”</p>
+      <div className="mt-2.5">{playButton}</div>
     </div>
   );
 }
@@ -90,10 +90,8 @@ function AiMessage({
   const speaking = voice.activeKey === key && voice.status === "playing";
   return (
     <div className="flex flex-col gap-2 rounded-2xl rounded-tl-sm bg-white p-4 shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-          Practice partner{speaking && <span className="ml-2 text-teal-700 dark:text-teal-300">speaking…</span>}
-        </span>
+      <div className="flex items-center justify-end gap-2">
+        {speaking && <span className="text-sm text-teal-700 dark:text-teal-300">speaking…</span>}
         <PlayButton
           label="Replay"
           small
