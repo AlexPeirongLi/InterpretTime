@@ -445,10 +445,10 @@ export default function ScenarioPractice() {
   const step = scenario ? (scenario.done ? total : Math.min(scenario.exchanges + 1, total)) : 0;
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 px-4 py-4 sm:px-6">
+    <div className="panel mx-auto my-3 flex w-[calc(100%-1.5rem)] max-w-2xl flex-1 flex-col gap-5 px-4 py-4 sm:my-6 sm:px-6">
       <div className="flex min-w-0 flex-1 flex-col gap-5">
         <header className="flex items-center justify-between gap-3">
-          <Link href="/" className="font-semibold tracking-tight">
+          <Link href="/" className="logo text-lg font-black tracking-tight">
             InterpretTime
           </Link>
           <button
@@ -473,7 +473,7 @@ export default function ScenarioPractice() {
               {Array.from({ length: total }, (_, i) => (
                 <span
                   key={i}
-                  className={`h-1.5 w-7 rounded-full ${i < step ? "bg-teal-700 dark:bg-teal-400" : "bg-zinc-300 dark:bg-zinc-700"}`}
+                  className={`h-1.5 w-7 rounded-full ${i < step ? "bg-orange-700 dark:bg-orange-400" : "bg-zinc-300 dark:bg-zinc-700"}`}
                 />
               ))}
             </span>
@@ -512,7 +512,7 @@ export default function ScenarioPractice() {
               <button
                 type="button"
                 onClick={resume}
-                className="rounded-xl bg-teal-700 px-5 py-3 font-semibold text-white transition hover:bg-teal-800"
+                className="rounded-xl bg-orange-700 px-5 py-3 font-semibold text-white transition hover:bg-orange-800"
               >
                 Resume where I left off
               </button>
@@ -556,7 +556,7 @@ export default function ScenarioPractice() {
                 type="button"
                 onClick={beginScenario}
                 disabled={waiting !== null}
-                className="rounded-xl bg-teal-700 px-5 py-4 text-lg font-semibold text-white transition hover:bg-teal-800 disabled:opacity-50"
+                className="rounded-xl bg-orange-700 px-5 py-4 text-lg font-semibold text-white transition hover:bg-orange-800 disabled:opacity-50"
               >
                 Start scenario
               </button>
@@ -565,7 +565,7 @@ export default function ScenarioPractice() {
                   type="checkbox"
                   checked={autoRecordOn}
                   onChange={(event) => changeAutoRecord(event.target.checked)}
-                  className="mt-0.5 size-4 accent-teal-700"
+                  className="mt-0.5 size-4 accent-orange-700"
                 />
                 Start recording my reply when the voice stops talking
               </label>
@@ -599,7 +599,7 @@ export default function ScenarioPractice() {
 
         {waiting && waiting !== "hint" && (
           <p role="status" className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-            <span className="size-2 animate-pulse rounded-full bg-teal-600" aria-hidden />
+            <span className="size-2 animate-pulse rounded-full bg-orange-600" aria-hidden />
             {waiting === "start"
               ? "Setting the scene…"
               : scenario && scenario.exchanges + 1 >= repliesFor(scenario)

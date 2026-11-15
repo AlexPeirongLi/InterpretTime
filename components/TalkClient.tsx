@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 // rendered in the browser, never on the server.
 const Conversation = dynamic(() => import("./Conversation"), {
   ssr: false,
-  loading: () => <p className="p-6 text-sm text-zinc-500">Loading…</p>,
+  loading: () => <p className="p-6 text-sm text-white/90">Loading…</p>,
 });
 
 export function TalkClient() {

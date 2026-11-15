@@ -149,12 +149,12 @@ export function AnswerBox({
           placeholder={
             recording ? "Listening… tap ■ when you're done" : transcribing ? "Writing down what you said…" : placeholder
           }
-          className="min-h-12 w-full min-w-0 flex-1 resize-none rounded-xl border border-zinc-300 bg-white px-4 py-3 leading-snug outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/30 dark:border-zinc-700 dark:bg-zinc-900"
+          className="min-h-12 w-full min-w-0 flex-1 resize-none rounded-xl border border-zinc-300 bg-white px-4 py-3 leading-snug outline-none focus:border-orange-600 focus:ring-2 focus:ring-orange-600/30 dark:border-zinc-700 dark:bg-zinc-900"
         />
         <button
           type="submit"
           disabled={disabled || !text.trim() || recording || transcribing}
-          className="h-12 shrink-0 rounded-xl bg-teal-700 px-4 font-medium text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-40"
+          className="h-12 shrink-0 rounded-xl bg-orange-700 px-4 font-medium text-white transition hover:bg-orange-800 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Send
         </button>
@@ -168,7 +168,7 @@ export function AnswerBox({
           {note}
         </p>
       ) : checksTone && spoken ? (
-        <p className="text-xs text-teal-800 dark:text-teal-300">
+        <p className="text-xs text-orange-800 dark:text-orange-300">
           Your tone was measured. Check the words, then send.
         </p>
       ) : help ? (

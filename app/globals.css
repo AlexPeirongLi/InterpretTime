@@ -1,8 +1,11 @@
 @import "tailwindcss";
 
+/* Warm cream panels over a sunset background. --background is the panel colour
+   (used by sticky bars too), so text keeps its normal contrast. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fffaf2;
+  --foreground: #1c1917;
+  --backdrop-dim: rgba(28, 16, 6, 0.35);
 }
 
 @theme inline {
@@ -14,13 +17,50 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #1c140e;
+    --foreground: #f5efe6;
+    --backdrop-dim: rgba(10, 6, 2, 0.6);
   }
 }
 
 body {
-  background: var(--background);
+  /* Shows briefly while the picture loads, and if it can't. */
+  background: #4a3420;
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+/* The background picture, softened a little (it is small, so this hides the
+   blur from stretching it) and dimmed so the panels stand out. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -24px;
+  z-index: -1;
+  background:
+    linear-gradient(var(--backdrop-dim), var(--backdrop-dim)),
+    url("/background.png") center / cover no-repeat;
+  filter: blur(3px) saturate(1.05);
+}
+
+/* The readable panel each page sits on. */
+.panel {
+  /* Solid, so sticky bars inside (which use the same colour) blend in. */
+  background: var(--background);
+  border-radius: 1.5rem;
+  box-shadow: 0 20px 50px rgba(28, 16, 6, 0.35);
+}
+
+/* The logo: bold, warm, like the sunset. */
+.logo {
+  background: linear-gradient(90deg, #c2410c, #d97706);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+  .logo {
+    background-image: linear-gradient(90deg, #fb923c, #fbbf24);
+  }
 }

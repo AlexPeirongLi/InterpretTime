@@ -30,7 +30,7 @@ export function EmotionSetPicker({ value, onChange, disabled, compact }: Props) 
             onClick={() => onChange(set)}
             className={`rounded-lg font-medium transition disabled:opacity-50 ${compact ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm"} ${
               value === set
-                ? "bg-white text-teal-800 shadow-sm dark:bg-zinc-950 dark:text-teal-300"
+                ? "bg-white text-orange-800 shadow-sm dark:bg-zinc-950 dark:text-orange-300"
                 : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
             }`}
           >

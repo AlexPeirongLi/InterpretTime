@@ -85,7 +85,7 @@ function FeedbackCard({
           <dd className="text-zinc-600 dark:text-zinc-300">{feedback.tryThis}</dd>
         </div>
       </dl>
-      <blockquote className="rounded-xl border-l-4 border-teal-600 bg-white px-3 py-2 text-sm dark:bg-zinc-950">
+      <blockquote className="rounded-xl border-l-4 border-orange-600 bg-white px-3 py-2 text-sm dark:bg-zinc-950">
         <span className="block text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
           You could say
         </span>
@@ -227,7 +227,7 @@ export function ScenarioTranscript({
           case "user":
             return (
               <li key={i} className="flex justify-end">
-                <p className="max-w-[85%] rounded-2xl rounded-br-sm bg-teal-700 px-4 py-2 leading-relaxed text-white">
+                <p className="max-w-[85%] rounded-2xl rounded-br-sm bg-orange-700 px-4 py-2 leading-relaxed text-white">
                   {turn.text}
                 </p>
               </li>
@@ -290,9 +290,9 @@ export function ScenarioTranscript({
             return (
               <li
                 key={i}
-                className="flex flex-col gap-3 rounded-2xl bg-teal-50 p-4 ring-1 ring-teal-600/30 dark:bg-teal-950/40 dark:ring-teal-400/30"
+                className="flex flex-col gap-3 rounded-2xl bg-orange-50 p-4 ring-1 ring-orange-600/30 dark:bg-orange-950/40 dark:ring-orange-400/30"
               >
-                <span className="text-sm font-semibold uppercase tracking-wide text-teal-800 dark:text-teal-300">
+                <span className="text-sm font-semibold uppercase tracking-wide text-orange-800 dark:text-orange-300">
                   Your review
                 </span>
                 <p className="leading-relaxed">{turn.text}</p>
@@ -326,7 +326,7 @@ export function ScenarioTranscript({
                     type="button"
                     onClick={onNext}
                     disabled={nextDisabled}
-                    className="rounded-xl bg-teal-700 px-5 py-3 font-medium text-white transition hover:bg-teal-800 disabled:opacity-50"
+                    className="rounded-xl bg-orange-700 px-5 py-3 font-medium text-white transition hover:bg-orange-800 disabled:opacity-50"
                   >
                     Next scenario
                   </button>
@@ -338,7 +338,7 @@ export function ScenarioTranscript({
       })}
       {pending && (
         <li className="flex justify-end">
-          <p className="max-w-[85%] rounded-2xl rounded-br-sm bg-teal-700/70 px-4 py-2 leading-relaxed text-white">
+          <p className="max-w-[85%] rounded-2xl rounded-br-sm bg-orange-700/70 px-4 py-2 leading-relaxed text-white">
             {pending}
           </p>
         </li>

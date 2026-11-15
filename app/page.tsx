@@ -17,9 +17,9 @@ const MODES = [
 
 export default function Home() {
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center gap-10 px-4 py-12 sm:px-8">
+    <main className="panel mx-auto my-6 flex w-[calc(100%-2rem)] max-w-3xl flex-col gap-10 px-5 py-10 sm:my-auto sm:px-10">
       <header className="flex flex-col gap-4">
-        <p className="text-4xl font-black tracking-tight text-teal-700 sm:text-5xl dark:text-teal-300">InterpretTime</p>
+        <p className="logo text-4xl font-black tracking-tight sm:text-5xl">InterpretTime</p>
         <h1 className="text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
           Practise hearing emotion in a voice.
         </h1>
@@ -37,11 +37,11 @@ export default function Home() {
             <li key={mode.href}>
               <Link
                 href={mode.href}
-                className="group flex h-full flex-col gap-3 rounded-2xl p-5 ring-1 ring-zinc-200 transition hover:bg-teal-50 hover:ring-teal-600/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 dark:ring-zinc-800 dark:hover:bg-teal-950/40 dark:hover:ring-teal-400/40"
+                className="group flex h-full flex-col gap-3 rounded-2xl p-5 ring-1 ring-zinc-200 transition hover:bg-orange-50 hover:ring-orange-600/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-700 dark:ring-zinc-800 dark:hover:bg-orange-950/40 dark:hover:ring-orange-400/40"
               >
                 <span className="text-xl font-semibold">{mode.name}</span>
                 <span className="leading-relaxed text-zinc-600 dark:text-zinc-300">{mode.line}</span>
-                <span className="mt-auto inline-flex items-center justify-center rounded-xl bg-teal-700 px-4 py-3 font-medium text-white transition group-hover:bg-teal-800">
+                <span className="mt-auto inline-flex items-center justify-center rounded-xl bg-orange-700 px-4 py-3 font-medium text-white transition group-hover:bg-orange-800">
                   {mode.cta}
                 </span>
               </Link>

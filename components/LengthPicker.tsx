@@ -30,9 +30,9 @@ export function LengthPicker({ last, disabled, onPick }: Props) {
             type="button"
             disabled={disabled}
             onClick={() => onPick(option.length)}
-            className={`flex flex-col items-start gap-0.5 rounded-xl px-4 py-3 text-left ring-1 transition hover:bg-teal-50 disabled:opacity-50 dark:hover:bg-teal-950/40 ${
+            className={`flex flex-col items-start gap-0.5 rounded-xl px-4 py-3 text-left ring-1 transition hover:bg-orange-50 disabled:opacity-50 dark:hover:bg-orange-950/40 ${
               option.length === last
-                ? "ring-2 ring-teal-600 dark:ring-teal-400"
+                ? "ring-2 ring-orange-600 dark:ring-orange-400"
                 : "ring-zinc-300 dark:ring-zinc-700"
             }`}
           >
