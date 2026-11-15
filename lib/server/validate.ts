@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { CUE_KINDS, EMOTION_SETS, EMOTIONS } from "@/lib/emotions";
-import type { ChatRequest, ConversationRequest, SpeakRequest } from "@/lib/types";
+import type { ChatRequest, ConversationRequest, CopyCheckRequest, SpeakRequest } from "@/lib/types";
 import { jsonError } from "./http";
 
 // Size limits keep one request from using a large amount of API credit.
@@ -39,18 +39,39 @@ export const chatRequestSchema: z.ZodType<ChatRequest> = z.object({
   emotionSet: emotionSet.optional(),
 });
 
-export const speakRequestSchema: z.ZodType<SpeakRequest> = z.object({
-  segments: z
-    .array(
-      z.object({
-        text: z.string().trim().min(1).max(MAX_SEGMENT_CHARS),
-        emotion,
-        voice: z.enum(["narrator", "character"]).optional(),
-      }),
-    )
-    .min(1)
-    .max(MAX_SEGMENTS),
-});
+/**
+ * A few plain words describing how to say something. Letters, spaces, commas,
+ * hyphens and apostrophes only, so it can't add its own voice instructions.
+ */
+export const deliveryText = z
+  .string()
+  .trim()
+  .min(2)
+  .max(60)
+  .regex(/^[a-zA-Z ,'-]+$/, "Use plain words only, like 'softer, slower and warm'.");
+
+/** An ElevenLabs voice ID. */
+export const voiceId = z.string().regex(/^[A-Za-z0-9]{10,40}$/, "That is not a voice ID.");
+
+export const speakRequestSchema: z.ZodType<SpeakRequest> = z
+  .object({
+    segments: z
+      .array(
+        z.object({
+          text: z.string().trim().min(1).max(MAX_SEGMENT_CHARS),
+          emotion,
+          voice: z.enum(["narrator", "character", "user"]).optional(),
+          delivery: deliveryText.optional(),
+        }),
+      )
+      .min(1)
+      .max(MAX_SEGMENTS),
+    userVoiceId: voiceId.optional(),
+  })
+  .refine((req) => !req.segments.some((s) => s.voice === "user") || req.userVoiceId, {
+    message: "Speaking in your own voice needs the ID of your voice copy.",
+    path: ["userVoiceId"],
+  });
 
 // --- Conversation mode -------------------------------------------------------
 
@@ -67,7 +88,12 @@ const feedback = z.object({
   exampleReply: z.string().max(MAX_TEXT),
   usedHint: z.boolean(),
   tone: z
-    .object({ fit, heard: z.string().max(MAX_TEXT), tip: z.string().max(MAX_TEXT) })
+    .object({
+      fit,
+      heard: z.string().max(MAX_TEXT),
+      tip: z.string().max(MAX_TEXT),
+      better: z.string().max(MAX_TEXT).nullable().optional(),
+    })
     .nullable()
     .optional(),
 });
@@ -75,8 +101,18 @@ const feedback = z.object({
 const scenarioTurn = z.discriminatedUnion("role", [
   z.object({ role: z.literal("narrator"), text: z.string().max(MAX_TEXT) }),
   z.object({ role: z.literal("character"), text: z.string().max(MAX_TEXT), emotion }),
-  z.object({ role: z.literal("user"), text: z.string().max(2000) }),
+  z.object({ role: z.literal("user"), text: z.string().max(2000), practised: z.boolean().optional() }),
   z.object({ role: z.literal("feedback"), feedback }),
+  z.object({
+    role: z.literal("practice"),
+    intro: z.string().max(MAX_TEXT),
+    line: z.string().max(MAX_TEXT),
+    delivery: z.string().max(MAX_TEXT),
+    feeling: emotion,
+    tries: z.number().int().min(0).max(100),
+    outcome: z.enum(["pending", "copied", "skipped"]),
+    heldLine: z.object({ text: z.string().max(MAX_TEXT), emotion }),
+  }),
   z.object({ role: z.literal("hint"), level: z.union([z.literal(1), z.literal(2)]), text: z.string().max(MAX_TEXT) }),
   z.object({ role: z.literal("wrapup"), text: z.string().max(MAX_TEXT) }),
 ]);
@@ -95,6 +131,7 @@ const scenario = z.object({
 
 const progress = z.object({
   results: z.array(z.object({ emotion, fit, usedHint: z.boolean(), toneFit: fit.optional() })).max(1000),
+  stepIns: z.object({ copied: z.number().int().min(0), skipped: z.number().int().min(0) }).optional(),
 });
 
 // Voice measurements. The bounds only reject nonsense; real values sit well inside.
@@ -131,7 +168,16 @@ export const conversationRequestSchema: z.ZodType<ConversationRequest> = z.discr
     delivery: replyDelivery.optional(),
   }),
   z.object({ action: z.literal("hint"), scenario, progress }),
+  z.object({ action: z.literal("practised"), scenario, progress, outcome: z.enum(["copied", "skipped"]) }),
 ]);
+
+export const copyCheckRequestSchema: z.ZodType<CopyCheckRequest> = z.object({
+  line: z.string().trim().min(1).max(MAX_TEXT),
+  target: deliveryText,
+  feeling: emotion,
+  attempt: replyDelivery,
+  tryNumber: z.number().int().min(1).max(100),
+});
 
 /** Reads and checks a JSON body. Returns the data, or the 400 to send back. */
 export async function readJson<T>(

@@ -185,3 +185,28 @@ export function saveBaseline(baseline: Baseline): void {
     // Works for this visit only.
   }
 }
+
+// ---------------------------------------------------------------------------
+// Voice copy: the ID of the copy of the person's voice made with their consent
+// (see YOUR-VOICE.md). The copy itself lives in ElevenLabs.
+// ---------------------------------------------------------------------------
+
+const VOICE_COPY_KEY = "interprettime:voice-copy:v1";
+
+export function loadVoiceCopy(): string | null {
+  try {
+    const value = window.localStorage.getItem(VOICE_COPY_KEY);
+    return value && /^[A-Za-z0-9]{10,40}$/.test(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveVoiceCopy(voiceId: string | null): void {
+  try {
+    if (voiceId) window.localStorage.setItem(VOICE_COPY_KEY, voiceId);
+    else window.localStorage.removeItem(VOICE_COPY_KEY);
+  } catch {
+    // Works for this visit only.
+  }
+}

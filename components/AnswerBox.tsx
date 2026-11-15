@@ -6,7 +6,12 @@ import { useRecorder } from "@/lib/client/useRecorder";
 import type { Delivery } from "@/lib/types";
 
 /** How a spoken answer sounded, and how many words were in that recording. */
-export type Spoken = { delivery: Delivery; words: number };
+export type Spoken = {
+  delivery: Delivery;
+  words: number;
+  /** The recording itself, so it can be played back next to a better version. */
+  audio: Blob | null;
+};
 
 type Props = {
   disabled: boolean;
@@ -67,7 +72,7 @@ export function AnswerBox({
     setNote(null);
     try {
       if (recording) {
-        const { text: heard, delivery } = await recorder.finish();
+        const { text: heard, delivery, audio } = await recorder.finish();
         if (!heard) {
           setError("I didn't catch any words. Try again, or type your answer.");
           return;
@@ -75,7 +80,7 @@ export function AnswerBox({
         setText((current) => (current ? `${current} ${heard}` : heard));
         // The latest recording is the one the tone feedback is about.
         if (delivery?.pitchHz != null) {
-          setSpoken({ delivery, words: countWords(heard) });
+          setSpoken({ delivery, words: countWords(heard), audio });
         } else if (checksTone) {
           setNote("I couldn't hear your tone clearly that time, so the feedback will be on your words only.");
         }

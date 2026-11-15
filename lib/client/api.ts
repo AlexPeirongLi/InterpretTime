@@ -5,8 +5,11 @@ import type {
   ChatResponse,
   ConversationRequest,
   ConversationResponse,
+  CopyCheckRequest,
+  CopyCheckResponse,
   SpeakRequest,
   TranscribeResponse,
+  VoiceCopyResponse,
 } from "@/lib/types";
 
 /** A route answered with an error. status 0 means the server was unreachable. */
@@ -50,12 +53,30 @@ export async function postChat(request: ChatRequest): Promise<ChatResponse> {
   return (await send("/api/chat", json(request))).json();
 }
 
+export async function postCopyCheck(request: CopyCheckRequest): Promise<CopyCheckResponse> {
+  return (await send("/api/copy-check", json(request))).json();
+}
+
 export async function postConversation(request: ConversationRequest): Promise<ConversationResponse> {
   return (await send("/api/conversation", json(request))).json();
 }
 
-export async function postSpeak(segments: SpeakRequest["segments"]): Promise<Blob> {
-  return (await send("/api/speak", json({ segments } satisfies SpeakRequest))).blob();
+export async function postSpeak(segments: SpeakRequest["segments"], userVoiceId?: string): Promise<Blob> {
+  const request: SpeakRequest = userVoiceId ? { segments, userVoiceId } : { segments };
+  return (await send("/api/speak", json(request))).blob();
+}
+
+/** Makes a copy of the person's voice from a recording. Only call after they agree. */
+export async function postVoiceCopy(audio: Blob): Promise<VoiceCopyResponse> {
+  const extension = audio.type.includes("ogg") ? "ogg" : audio.type.includes("mp4") ? "mp4" : "webm";
+  const form = new FormData();
+  form.append("consent", "yes");
+  form.append("audio", audio, `sample.${extension}`);
+  return (await send("/api/voice-copy", { method: "POST", body: form })).json();
+}
+
+export async function deleteVoiceCopy(voiceId: string): Promise<void> {
+  await send("/api/voice-copy", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ voiceId }) });
 }
 
 export async function postTranscribe(audio: Blob): Promise<string> {

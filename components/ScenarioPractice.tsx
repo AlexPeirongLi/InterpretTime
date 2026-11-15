@@ -5,21 +5,31 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { messageOf, postConversation } from "@/lib/client/api";
+import { deleteVoiceCopy, messageOf, postConversation, postCopyCheck } from "@/lib/client/api";
 import { turnsSegments } from "@/lib/client/scenarioSpeech";
 import {
   clearScenario,
   loadBaseline,
+  loadVoiceCopy,
   loadEmotionSet,
   loadLength,
   saveEmotionSet,
   loadScenario,
   saveLength,
   saveScenario,
+  saveVoiceCopy,
   type SavedScenario,
 } from "@/lib/client/storage";
 import { useVoice } from "@/lib/client/useVoice";
-import { canHint, hintsThisTurn, repliesFor } from "@/lib/conversation";
+import {
+  canHint,
+  hintsThisTurn,
+  pendingPractice,
+  repliesFor,
+  TRIES_BEFORE_MOVE_ON,
+  WORD_MATCH_NEEDED,
+  wordMatch,
+} from "@/lib/conversation";
 import {
   HINTS_PER_TURN,
   type Baseline,
@@ -30,6 +40,7 @@ import {
   type ConversationResponse,
   type ReplyDelivery,
   type Scenario,
+  type ScenarioTurn,
 } from "@/lib/types";
 import { AnswerBox, type Spoken } from "./AnswerBox";
 import { readyForDeeperConversation } from "@/lib/client/progress";
@@ -45,7 +56,7 @@ const NUDGE_AFTER_MS = 20_000;
 
 const fresh = (): SavedScenario => ({ scenario: null, progress: { results: [] } });
 
-type Waiting = "start" | "reply" | "hint" | null;
+type Waiting = "start" | "reply" | "hint" | "copy" | null;
 /** What went wrong, and what "Try again" should redo. */
 type ErrorState = {
   message: string;
@@ -58,6 +69,9 @@ export default function ScenarioPractice() {
   // Choosing how long the next conversation lasts: at the very start, and
   // after each review.
   const [choosing, setChoosing] = useState(() => saved.scenario === null);
+  // Coming back to an unfinished conversation: ask whether to resume it or
+  // start a new one, instead of carrying on without asking.
+  const [resuming, setResuming] = useState(() => saved.scenario !== null && !saved.scenario.done);
   const [lastLength, setLastLength] = useState<ConversationLength>(() => loadLength() ?? "medium");
   // Start recording by itself once the voice has finished talking.
   const [autoRecordOn, setAutoRecordOn] = useState(true);
@@ -86,16 +100,20 @@ export default function ScenarioPractice() {
   // only when they choose it, from the link under the reply box.
   const [baseline, setBaseline] = useState<Baseline | null>(() => loadBaseline());
   const [askBaseline, setAskBaseline] = useState(false);
+  // A copy of the person's voice, made only with their consent (YOUR-VOICE.md).
+  const [voiceCopy, setVoiceCopy] = useState<string | null>(() => loadVoiceCopy());
+  const [voiceCopyError, setVoiceCopyError] = useState<string | null>(null);
+  // The person's own spoken replies this visit, by "<scenario id>:<reply number>",
+  // so they can be played next to the better version. Not saved: they are audio.
+  const recordings = useRef(new Map<string, string>());
   const [showProgress, setShowProgress] = useState(false);
 
   const voice = useVoice();
-  const { play, stop } = voice;
+  const { play, playRecording, stop } = voice;
 
   // Bumped by Start again and Next scenario, so an answer about the old
   // scenario is dropped.
   const generation = useRef(0);
-  const initial = useRef(saved);
-  const started = useRef(false);
   const bottom = useRef<HTMLDivElement>(null);
 
   const { scenario, progress } = saved;
@@ -115,15 +133,15 @@ export default function ScenarioPractice() {
       const known = before && before.id === response.scenario.id ? before.turns.length : 0;
       const added = response.scenario.turns.slice(known);
       const firstSpoken = response.scenario.turns.findIndex((t, i) => i >= known && t.role !== "user");
-      const segments = turnsSegments(added, response.scenario);
+      const segments = turnsSegments(added, response.scenario, voiceCopy !== null);
       if (segments.length && firstSpoken >= 0) {
         const key = scenarioTurnKey(response.scenario, firstSpoken);
         setAutoKey(response.scenario.done ? null : key);
-        void play(segments, key);
+        void play(segments, key, voiceCopy ?? undefined);
       }
       return response;
     },
-    [play],
+    [play, voiceCopy],
   );
 
   const startScenario = async (currentProgress: ConversationProgress, length: ConversationLength) => {
@@ -149,20 +167,35 @@ export default function ScenarioPractice() {
     void startScenario(progress, lastLength);
   };
 
-  // On arrival in the middle of a scenario, play where it is up to once: the
-  // scene and the character's latest lines, so nobody has to press play
-  // first. If the browser blocks sound, it plays on the first tap or key.
-  useEffect(() => {
-    if (started.current) return;
-    started.current = true;
-    const current = initial.current.scenario;
+  /** Resume: play where the conversation is up to (the scene, and the character's latest lines). */
+  const resume = () => {
+    setResuming(false);
+    const current = scenario;
     if (!current || current.done) return;
     const from = current.turns.findLastIndex((t) => t.role === "user") + 1;
-    const spoken = current.turns.slice(from).filter((t) => t.role === "narrator" || t.role === "character");
-    const first = current.turns.findIndex((t, i) => i >= from && (t.role === "narrator" || t.role === "character"));
-    const segments = turnsSegments(spoken, current);
-    if (segments.length && first >= 0) void play(segments, scenarioTurnKey(current, first));
-  }, [play]);
+    const speaks = (t: ScenarioTurn) => t.role === "narrator" || t.role === "character" || t.role === "practice";
+    const spoken = current.turns.slice(from).filter(speaks);
+    const first = current.turns.findIndex((t, i) => i >= from && speaks(t));
+    const segments = turnsSegments(spoken, current, voiceCopy !== null);
+    if (segments.length && first >= 0) {
+      const key = scenarioTurnKey(current, first);
+      setAutoKey(key);
+      void play(segments, key, voiceCopy ?? undefined);
+    }
+  };
+
+  /** Start a new conversation: drops the unfinished one, keeps progress. */
+  const startNew = () => {
+    generation.current++;
+    stop();
+    setPending(null);
+    setError(null);
+    const next: SavedScenario = { scenario: null, progress };
+    setSaved(next);
+    saveScenario(next);
+    setResuming(false);
+    setChoosing(true);
+  };
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -187,10 +220,83 @@ export default function ScenarioPractice() {
     const reply = text.trim();
     if (!reply || waiting || pending || !scenario || scenario.done) return false;
     stop();
+    if (spoken?.audio) {
+      recordings.current.set(`${scenario.id}:${scenario.exchanges + 1}`, URL.createObjectURL(spoken.audio));
+    }
     const delivery: ReplyDelivery | undefined = spoken
       ? { measured: spoken.delivery, words: spoken.words, baseline }
       : undefined;
     void sendReply(reply, delivery);
+    return true;
+  };
+
+  // --- Step-ins: copying the example line (STEP-IN.md) ------------------------
+  const [copyNote, setCopyNote] = useState<string | null>(null);
+
+  /** The scenario with the pending step-in's try count set, saved. */
+  const withTries = (current: Scenario, tries: number): Scenario => {
+    const index = current.turns.findLastIndex((t) => t.role === "practice" && t.outcome === "pending");
+    const updated: Scenario = {
+      ...current,
+      turns: current.turns.map((t, i) => (i === index && t.role === "practice" ? { ...t, tries } : t)),
+    };
+    const next: SavedScenario = { scenario: updated, progress };
+    setSaved(next);
+    saveScenario(next);
+    return updated;
+  };
+
+  const finishPractice = async (outcome: "copied" | "skipped", current: Scenario | null = scenario) => {
+    if (!current) return;
+    setWaiting("reply");
+    setError(null);
+    try {
+      await call({ action: "practised", scenario: current, progress, outcome }, current);
+      setCopyNote(null);
+    } catch (e) {
+      setError({ message: messageOf(e) });
+    } finally {
+      setWaiting(null);
+    }
+  };
+
+  const checkAttempt = async (text: string, spoken: Spoken) => {
+    if (!scenario || !practice) return;
+    const tryNumber = practice.tries + 1;
+    const current = withTries(scenario, tryNumber);
+    // Words first, checked here at no cost.
+    if (wordMatch(text, practice.line) < WORD_MATCH_NEEDED) {
+      setCopyNote(`The words were a bit different. Try saying: “${practice.line}”`);
+      return;
+    }
+    setWaiting("copy");
+    setError(null);
+    try {
+      const result = await postCopyCheck({
+        line: practice.line,
+        target: practice.delivery,
+        feeling: practice.feeling,
+        attempt: { measured: spoken.delivery, words: spoken.words, baseline },
+        tryNumber,
+      });
+      setCopyNote(result.nudge);
+      setWaiting(null);
+      if (result.matched) await finishPractice("copied", current);
+    } catch (e) {
+      setError({ message: messageOf(e) });
+      setWaiting(null);
+    }
+  };
+
+  /** The answer box during a step-in: each spoken attempt is checked, not sent as a reply. */
+  const attemptCopy = (text: string, spoken: Spoken | null): boolean => {
+    if (!text.trim() || waiting || !practice) return false;
+    if (!spoken) {
+      setCopyNote("Say it out loud with the microphone, so your tone can be checked too.");
+      return false;
+    }
+    stop();
+    void checkAttempt(text, spoken);
     return true;
   };
 
@@ -214,6 +320,19 @@ export default function ScenarioPractice() {
     stop();
     setPending(null);
     setChoosing(true);
+  };
+
+  const removeVoiceCopy = async () => {
+    if (!voiceCopy) return;
+    if (!window.confirm("Delete the copy of your voice from ElevenLabs? This can't be undone. You can make a new one any time.")) return;
+    setVoiceCopyError(null);
+    try {
+      await deleteVoiceCopy(voiceCopy);
+      saveVoiceCopy(null);
+      setVoiceCopy(null);
+    } catch (e) {
+      setVoiceCopyError(messageOf(e));
+    }
   };
 
   const restart = () => {
@@ -244,6 +363,8 @@ export default function ScenarioPractice() {
   // --- "Take your time" note -------------------------------------------------
   const turnId = scenario ? `${scenario.id}:${scenario.exchanges}` : null;
   const myTurn = !!scenario && !scenario.done && !waiting && !pending;
+  // A step-in waiting to be copied (STEP-IN.md).
+  const practice = scenario ? pendingPractice(scenario) : null;
   const quiet = voice.status === "idle" && !voice.blocked;
 
   useEffect(() => {
@@ -258,7 +379,7 @@ export default function ScenarioPractice() {
   const showNudge = myTurn && turnId !== null && nudgeTurn === turnId && activeTurn !== turnId;
 
   const hintsLeft = scenario ? HINTS_PER_TURN - hintsThisTurn(scenario) : 0;
-  const hintAllowed = !!scenario && canHint(scenario) && myTurn;
+  const hintAllowed = !!scenario && canHint(scenario) && myTurn && !practice;
 
   const hintButton = (
     <button
@@ -294,9 +415,31 @@ export default function ScenarioPractice() {
         >
           {baseline ? "Redo my normal voice" : "Set up tone feedback"}
         </button>
+        {voiceCopy && (
+          <button
+            type="button"
+            onClick={() => void removeVoiceCopy()}
+            className="rounded-lg px-3 py-1.5 text-sm text-red-700 ring-1 ring-red-300 hover:bg-red-50 dark:text-red-300 dark:ring-red-900 dark:hover:bg-red-950/40"
+          >
+            Delete my voice copy
+          </button>
+        )}
       </div>
+      {voiceCopyError && (
+        <p role="alert" className="text-sm text-red-700 dark:text-red-300">
+          {voiceCopyError}
+        </p>
+      )}
     </div>
   );
+
+  // The way into tone feedback and the voice copy, shown until both are set up.
+  const setupLabel =
+    baseline === null
+      ? "Set up tone feedback (optional)"
+      : voiceCopy === null
+        ? "Hear your replies in your own voice (set up)"
+        : null;
 
   const total = scenario ? repliesFor(scenario) : 0;
   const step = scenario ? (scenario.done ? total : Math.min(scenario.exchanges + 1, total)) : 0;
@@ -354,7 +497,38 @@ export default function ScenarioPractice() {
         )}
         {voice.error && <Notice tone="warn">{voice.error} You can still read the conversation.</Notice>}
 
-        {choosing ? (
+        {resuming && scenario ? (
+          <section
+            aria-label="Unfinished conversation"
+            className="flex flex-col gap-4 rounded-2xl p-5 ring-1 ring-zinc-200 dark:ring-zinc-800"
+          >
+            <div>
+              <h2 className="text-lg font-semibold">Welcome back</h2>
+              <p className="mt-1 text-zinc-600 dark:text-zinc-300">
+                You were in the middle of <span className="font-medium">{scenario.title}</span>, reply {step} of {total}.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={resume}
+                className="rounded-xl bg-teal-700 px-5 py-3 font-semibold text-white transition hover:bg-teal-800"
+              >
+                Resume where I left off
+              </button>
+              <button
+                type="button"
+                onClick={startNew}
+                className="rounded-xl px-5 py-3 font-medium ring-1 ring-zinc-300 transition hover:bg-zinc-100 dark:ring-zinc-700 dark:hover:bg-zinc-800"
+              >
+                Start a new conversation
+              </button>
+            </div>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              Starting a new one keeps your progress. Only this unfinished conversation is dropped.
+            </p>
+          </section>
+        ) : choosing ? (
           <div className="flex flex-col gap-5">
             {emotionSet === "basics" && !suggestionDismissed && readyForDeeperConversation(progress) && (
               <Notice tone="info">
@@ -395,6 +569,15 @@ export default function ScenarioPractice() {
                 />
                 Start recording my reply when the voice stops talking
               </label>
+              {setupLabel && !askBaseline && (
+                <button
+                  type="button"
+                  onClick={() => setAskBaseline(true)}
+                  className="self-start py-1 text-sm text-zinc-600 underline underline-offset-4 dark:text-zinc-300"
+                >
+                  {setupLabel}
+                </button>
+              )}
             </div>
           </div>
         ) : (
@@ -405,6 +588,9 @@ export default function ScenarioPractice() {
               voice={voice}
               onPlay={play}
               onStop={stop}
+              onPlayRecording={playRecording}
+              voiceCopy={voiceCopy}
+              recordingFor={(n) => recordings.current.get(`${scenario.id}:${n}`) ?? null}
               onNext={nextScenario}
               nextDisabled={waiting !== null}
             />
@@ -445,36 +631,57 @@ export default function ScenarioPractice() {
           </Notice>
         )}
 
-        {askBaseline && scenario && !choosing && (
+        {askBaseline && !resuming && (
           <VoiceBaseline
             redo={baseline !== null}
+            existingCopy={voiceCopy}
             onRecordStart={stop}
-            onDone={(next) => {
+            onDone={(next, copy) => {
               setBaseline(next);
+              if (copy) setVoiceCopy(copy);
               setAskBaseline(false);
             }}
             onSkip={() => setAskBaseline(false)}
           />
         )}
 
-        {scenario && !scenario.done && !choosing && (
+        {scenario && !scenario.done && !choosing && !resuming && (
           <div className="sticky bottom-0 -mx-4 flex flex-col gap-2 border-t border-zinc-200 bg-[var(--background)] px-4 pb-4 pt-3 sm:-mx-6 sm:px-6 dark:border-zinc-800">
             <AnswerBox
               disabled={!myTurn}
-              onSend={send}
+              onSend={practice ? attemptCopy : send}
               onRecordStart={() => {
                 markActive();
                 stop();
               }}
               onType={markActive}
-              placeholder={`Say something to ${scenario.characterName}…`}
+              placeholder={practice ? "Say it back, copying how it sounded…" : `Say something to ${scenario.characterName}…`}
               help=""
               checksTone
               autoRecordToken={autoRecordOn && autoKey && voice.endedKey === autoKey ? `${autoKey}:${voice.endedCount}` : null}
               onAutoRecordStarted={() => setAutoKey(null)}
             />
+            {practice && (copyNote || practice.tries >= TRIES_BEFORE_MOVE_ON) && (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-violet-50 px-3 py-2 text-sm dark:bg-violet-950/40">
+                {copyNote && (
+                  <p role="status" className="text-violet-950 dark:text-violet-100">
+                    {copyNote}
+                  </p>
+                )}
+                {practice.tries >= TRIES_BEFORE_MOVE_ON && (
+                  <button
+                    type="button"
+                    onClick={() => void finishPractice("skipped")}
+                    disabled={waiting !== null}
+                    className="py-1 text-sm text-zinc-600 underline underline-offset-4 disabled:opacity-50 dark:text-zinc-300"
+                  >
+                    Move on for now
+                  </button>
+                )}
+              </div>
+            )}
             <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-              {hintButton}
+              {!practice && hintButton}
               <button
                 type="button"
                 onClick={() => changeAutoRecord(!autoRecordOn)}
@@ -488,14 +695,14 @@ export default function ScenarioPractice() {
                   Take your time. Want a hint?
                 </p>
               ) : (
-                baseline === null &&
+                setupLabel &&
                 !askBaseline && (
                   <button
                     type="button"
                     onClick={() => setAskBaseline(true)}
                     className="py-1 text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-300"
                   >
-                    Set up tone feedback (optional)
+                    {setupLabel}
                   </button>
                 )
               )}
