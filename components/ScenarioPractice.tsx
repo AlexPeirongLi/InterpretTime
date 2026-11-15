@@ -60,6 +60,9 @@ export default function ScenarioPractice() {
   // Choosing how long the next conversation lasts: at the very start, and
   // after each review.
   const [choosing, setChoosing] = useState(() => saved.scenario === null);
+  // Coming back to an unfinished conversation: ask whether to resume it or
+  // start a new one, instead of carrying on without asking.
+  const [resuming, setResuming] = useState(() => saved.scenario !== null && !saved.scenario.done);
   const [lastLength, setLastLength] = useState<ConversationLength>(() => loadLength() ?? "medium");
   // Start recording by itself once the voice has finished talking.
   const [autoRecordOn, setAutoRecordOn] = useState(true);
@@ -102,8 +105,6 @@ export default function ScenarioPractice() {
   // Bumped by Start again and Next scenario, so an answer about the old
   // scenario is dropped.
   const generation = useRef(0);
-  const initial = useRef(saved);
-  const started = useRef(false);
   const bottom = useRef<HTMLDivElement>(null);
 
   const { scenario, progress } = saved;
@@ -157,20 +158,34 @@ export default function ScenarioPractice() {
     void startScenario(progress, lastLength);
   };
 
-  // On arrival in the middle of a scenario, play where it is up to once: the
-  // scene and the character's latest lines, so nobody has to press play
-  // first. If the browser blocks sound, it plays on the first tap or key.
-  useEffect(() => {
-    if (started.current) return;
-    started.current = true;
-    const current = initial.current.scenario;
+  /** Resume: play where the conversation is up to (the scene, and the character's latest lines). */
+  const resume = () => {
+    setResuming(false);
+    const current = scenario;
     if (!current || current.done) return;
     const from = current.turns.findLastIndex((t) => t.role === "user") + 1;
     const spoken = current.turns.slice(from).filter((t) => t.role === "narrator" || t.role === "character");
     const first = current.turns.findIndex((t, i) => i >= from && (t.role === "narrator" || t.role === "character"));
     const segments = turnsSegments(spoken, current);
-    if (segments.length && first >= 0) void play(segments, scenarioTurnKey(current, first));
-  }, [play]);
+    if (segments.length && first >= 0) {
+      const key = scenarioTurnKey(current, first);
+      setAutoKey(key);
+      void play(segments, key);
+    }
+  };
+
+  /** Start a new conversation: drops the unfinished one, keeps progress. */
+  const startNew = () => {
+    generation.current++;
+    stop();
+    setPending(null);
+    setError(null);
+    const next: SavedScenario = { scenario: null, progress };
+    setSaved(next);
+    saveScenario(next);
+    setResuming(false);
+    setChoosing(true);
+  };
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -336,6 +351,14 @@ export default function ScenarioPractice() {
     </div>
   );
 
+  // The way into tone feedback and the voice copy, shown until both are set up.
+  const setupLabel =
+    baseline === null
+      ? "Set up tone feedback (optional)"
+      : voiceCopy === null
+        ? "Hear your replies in your own voice (set up)"
+        : null;
+
   const total = scenario ? repliesFor(scenario) : 0;
   const step = scenario ? (scenario.done ? total : Math.min(scenario.exchanges + 1, total)) : 0;
 
@@ -392,7 +415,38 @@ export default function ScenarioPractice() {
         )}
         {voice.error && <Notice tone="warn">{voice.error} You can still read the conversation.</Notice>}
 
-        {choosing ? (
+        {resuming && scenario ? (
+          <section
+            aria-label="Unfinished conversation"
+            className="flex flex-col gap-4 rounded-2xl p-5 ring-1 ring-zinc-200 dark:ring-zinc-800"
+          >
+            <div>
+              <h2 className="text-lg font-semibold">Welcome back</h2>
+              <p className="mt-1 text-zinc-600 dark:text-zinc-300">
+                You were in the middle of <span className="font-medium">{scenario.title}</span>, reply {step} of {total}.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={resume}
+                className="rounded-xl bg-teal-700 px-5 py-3 font-semibold text-white transition hover:bg-teal-800"
+              >
+                Resume where I left off
+              </button>
+              <button
+                type="button"
+                onClick={startNew}
+                className="rounded-xl px-5 py-3 font-medium ring-1 ring-zinc-300 transition hover:bg-zinc-100 dark:ring-zinc-700 dark:hover:bg-zinc-800"
+              >
+                Start a new conversation
+              </button>
+            </div>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              Starting a new one keeps your progress. Only this unfinished conversation is dropped.
+            </p>
+          </section>
+        ) : choosing ? (
           <div className="flex flex-col gap-5">
             {emotionSet === "basics" && !suggestionDismissed && readyForDeeperConversation(progress) && (
               <Notice tone="info">
@@ -433,6 +487,15 @@ export default function ScenarioPractice() {
                 />
                 Start recording my reply when the voice stops talking
               </label>
+              {setupLabel && !askBaseline && (
+                <button
+                  type="button"
+                  onClick={() => setAskBaseline(true)}
+                  className="self-start py-1 text-sm text-zinc-600 underline underline-offset-4 dark:text-zinc-300"
+                >
+                  {setupLabel}
+                </button>
+              )}
             </div>
           </div>
         ) : (
@@ -486,7 +549,7 @@ export default function ScenarioPractice() {
           </Notice>
         )}
 
-        {askBaseline && scenario && !choosing && (
+        {askBaseline && !resuming && (
           <VoiceBaseline
             redo={baseline !== null}
             existingCopy={voiceCopy}
@@ -500,7 +563,7 @@ export default function ScenarioPractice() {
           />
         )}
 
-        {scenario && !scenario.done && !choosing && (
+        {scenario && !scenario.done && !choosing && !resuming && (
           <div className="sticky bottom-0 -mx-4 flex flex-col gap-2 border-t border-zinc-200 bg-[var(--background)] px-4 pb-4 pt-3 sm:-mx-6 sm:px-6 dark:border-zinc-800">
             <AnswerBox
               disabled={!myTurn}
@@ -531,14 +594,14 @@ export default function ScenarioPractice() {
                   Take your time. Want a hint?
                 </p>
               ) : (
-                baseline === null &&
+                setupLabel &&
                 !askBaseline && (
                   <button
                     type="button"
                     onClick={() => setAskBaseline(true)}
                     className="py-1 text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-300"
                   >
-                    Set up tone feedback (optional)
+                    {setupLabel}
                   </button>
                 )
               )}
