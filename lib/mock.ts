@@ -21,7 +21,7 @@ type Practice = { emotion: Emotion; kind: CueKind; phrase: string };
 const BASIC_SCRIPT: Practice[] = [
   { emotion: "angry", kind: "both", phrase: "I told you not to touch my things." },
   { emotion: "sad", kind: "tone", phrase: "I'll be home late tonight." },
-  { emotion: "happy", kind: "words", phrase: "I'm so glad you came." },
+  { emotion: "happy", kind: "both", phrase: "I'm so glad you came." },
   { emotion: "afraid", kind: "tone", phrase: "Someone is at the door." },
 ];
 
