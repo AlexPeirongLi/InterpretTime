@@ -6,6 +6,10 @@ import { jsonError } from "@/lib/server/http";
 import { conversationRequestSchema, readJson } from "@/lib/server/validate";
 import type { ConversationRequest, ConversationResponse } from "@/lib/types";
 
+// Give the AI and voice calls room when hosted: free hosting may otherwise
+// stop a request after about 10 seconds. 60 is the free plan's maximum.
+export const maxDuration = 60;
+
 // POST /api/conversation — conversation mode. See CONVERSATION-MODE.md.
 // Without ANTHROPIC_API_KEY it answers from the scripted scenario in
 // lib/mock-conversation.ts, so the page works before the key is set.

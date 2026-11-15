@@ -5,6 +5,10 @@ import { jsonError } from "@/lib/server/http";
 import { chatRequestSchema, readJson } from "@/lib/server/validate";
 import type { ChatResponse } from "@/lib/types";
 
+// Give the AI and voice calls room when hosted: free hosting may otherwise
+// stop a request after about 10 seconds. 60 is the free plan's maximum.
+export const maxDuration = 60;
+
 // POST /api/chat — the conversation so far in, the AI's next turn out.
 // Without ANTHROPIC_API_KEY it answers from the scripted conversation in
 // lib/mock.ts, so the pages work before the key is set.

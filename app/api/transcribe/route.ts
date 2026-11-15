@@ -3,6 +3,10 @@ import { env, UpstreamError } from "@/lib/server/env";
 import { jsonError } from "@/lib/server/http";
 import type { TranscribeResponse } from "@/lib/types";
 
+// Give the AI and voice calls room when hosted: free hosting may otherwise
+// stop a request after about 10 seconds. 60 is the free plan's maximum.
+export const maxDuration = 60;
+
 // A spoken answer is a few seconds long. This is generous.
 const MAX_BYTES = 10 * 1024 * 1024;
 
