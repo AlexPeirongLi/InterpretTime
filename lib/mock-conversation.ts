@@ -54,6 +54,27 @@ const SCRIPTS = {
     exampleReply: "That sounds really disappointing. Do you want to talk about it?",
     wrapup: "Sam was sad about the interview. Noticing that first is what helps most.",
   },
+  angry: {
+    title: "The group chat",
+    name: "Jordan",
+    emotion: "angry",
+    setup:
+      "You're round at Jordan's, and Jordan's phone keeps buzzing. They finally pick it up, read it, and put it face down on the table.",
+    lines: [
+      "Honestly, I'm so done with that group chat.",
+      "They just keep bringing up the same thing over and over.",
+      "I don't even want to look at my phone right now.",
+    ],
+    hints: [
+      "Listen to how sharp and clipped Jordan's voice is, and how fast they're talking.",
+      "Jordan sounds angry, not just annoyed. They might need a minute before they want advice.",
+    ],
+    goodWords: ["annoying", "frustrat", "angry", "wind you up", "sounds awful", "want to talk", "that's rough", "fair enough"],
+    cues: ["sharp, clipped voice", "putting the phone face down", "'so done with'"],
+    tryThis: "Let them vent first, before jumping to fixing it.",
+    exampleReply: "That sounds really frustrating. Do you want to vent, or would it help to put your phone away for a bit?",
+    wrapup: "Jordan was angry about the group chat. Giving them space to vent first is often more useful than jumping straight to advice.",
+  },
   sarcastic: {
     title: "The printer again",
     name: "Robin",
@@ -75,13 +96,39 @@ const SCRIPTS = {
     wrapup:
       "Robin was being sarcastic: saying 'perfect timing' and 'it's fine' while really being fed up. The trick is to notice when the words are nicer than the situation, and answer the real feeling.",
   },
+  disappointed: {
+    title: "The audition results",
+    name: "Priya",
+    emotion: "disappointed",
+    setup: "Priya just checked the noticeboard for the audition results and walks back over to you.",
+    lines: [
+      "Oh. Well, it is what it is, I guess.",
+      "No, it's fine, I wasn't that bothered anyway.",
+      "I mean, there's always next year. Whatever.",
+    ],
+    hints: [
+      "Priya says 'it's fine', but listen to how flat and quiet her voice is.",
+      "Priya is disappointed, even though her words say she doesn't mind. The 'whatever' is covering something.",
+    ],
+    goodWords: ["disappoint", "sorry", "sucks", "that's rough", "hard", "really wanted", "unfair", "feel"],
+    cues: ["flat, quiet voice", "'it is what it is'", "'whatever' at the end"],
+    tryThis: "When someone says they don't mind but sounds flat, it's often worth naming the disappointment anyway.",
+    exampleReply: "I'm sorry, that's really disappointing, even if you don't want to make a big thing of it.",
+    wrapup: "Priya said she didn't mind, but she was disappointed about the audition. The flat voice was the real signal, not the words.",
+  },
 } satisfies Record<string, Script>;
 
 type ScriptName = keyof typeof SCRIPTS;
 
+const BASIC_SCRIPTS: ScriptName[] = ["sad", "angry"];
+const DEEPER_SCRIPTS: ScriptName[] = ["sarcastic", "disappointed"];
+
+const pick = <T,>(items: readonly T[]): T => items[Math.floor(Math.random() * items.length)];
+
 /** Which script a scenario came from, from its id. */
 function scriptOf(scenario: Scenario): Script {
-  return scenario.id.startsWith("mock-sarcastic-") ? SCRIPTS.sarcastic : SCRIPTS.sad;
+  const name = (Object.keys(SCRIPTS) as ScriptName[]).find((key) => scenario.id.startsWith(`mock-${key}-`));
+  return SCRIPTS[name ?? "sad"];
 }
 
 function judge(script: Script, reply: string): Fit {
@@ -97,7 +144,7 @@ export function mockStart(
   length: ConversationLength = "quick",
   emotionSet: EmotionSet = "basics",
 ): ConversationResponse {
-  const name: ScriptName = emotionSet === "basics" ? "sad" : "sarcastic";
+  const name = pick(emotionSet === "basics" ? BASIC_SCRIPTS : DEEPER_SCRIPTS);
   const script = SCRIPTS[name];
   const scenario: Scenario = {
     id: `mock-${name}-${Date.now()}`,
