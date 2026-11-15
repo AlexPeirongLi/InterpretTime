@@ -5,6 +5,10 @@ import { readJson, voiceId } from "@/lib/server/validate";
 import type { VoiceCopyResponse } from "@/lib/types";
 import { z } from "zod";
 
+// Give the AI and voice calls room when hosted: free hosting may otherwise
+// stop a request after about 10 seconds. 60 is the free plan's maximum.
+export const maxDuration = 60;
+
 // About a minute of speech is a few MB at most. This is generous.
 const MAX_BYTES = 20 * 1024 * 1024;
 const MIN_BYTES = 20 * 1024;
