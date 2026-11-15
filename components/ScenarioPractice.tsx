@@ -21,6 +21,7 @@ import {
   type SavedScenario,
 } from "@/lib/client/storage";
 import { useVoice } from "@/lib/client/useVoice";
+import { clearOpenDirectly, opensDirectly } from "@/lib/demo";
 import {
   canHint,
   hintsThisTurn,
@@ -71,7 +72,11 @@ export default function ScenarioPractice() {
   const [choosing, setChoosing] = useState(() => saved.scenario === null);
   // Coming back to an unfinished conversation: ask whether to resume it or
   // start a new one, instead of carrying on without asking.
-  const [resuming, setResuming] = useState(() => saved.scenario !== null && !saved.scenario.done);
+  const [resuming, setResuming] = useState(
+    () => !opensDirectly() && saved.scenario !== null && !saved.scenario.done,
+  );
+  // The demo page's "open directly" note is used once.
+  useEffect(() => clearOpenDirectly(), []);
   const [lastLength, setLastLength] = useState<ConversationLength>(() => loadLength() ?? "medium");
   // Start recording by itself once the voice has finished talking.
   const [autoRecordOn, setAutoRecordOn] = useState(true);
