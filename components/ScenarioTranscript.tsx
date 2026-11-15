@@ -10,8 +10,14 @@ type Props = {
   /** The reply being sent, shown until the server answers. */
   pending: string | null;
   voice: VoiceState;
-  onPlay: (segments: SpeakRequest["segments"], key: string) => void;
+  onPlay: (segments: SpeakRequest["segments"], key: string, userVoiceId?: string) => void;
   onStop: () => void;
+  /** Plays a recording kept in the browser. */
+  onPlayRecording: (url: string, key: string) => void;
+  /** The person's voice copy, if they made one. */
+  voiceCopy: string | null;
+  /** The person's own recording of reply number n (1-based), if it was spoken this visit. */
+  recordingFor: (replyNumber: number) => string | null;
   onNext: () => void;
   nextDisabled: boolean;
 };
@@ -30,12 +36,15 @@ function FeedbackCard({
   play,
   number,
   reply,
+  yourVoice,
 }: {
   feedback: Feedback;
   characterName: string;
   play: React.ReactNode;
   number: number;
   reply: string;
+  /** "Hear it in your voice" and "Your recording", when the tone didn't fit. */
+  yourVoice: React.ReactNode;
 }) {
   return (
     <section
@@ -92,6 +101,7 @@ function FeedbackCard({
           </div>
           <p className="text-zinc-600 dark:text-zinc-300">Your voice {feedback.tone.heard}.</p>
           <p className="text-zinc-600 dark:text-zinc-300">{feedback.tone.tip}</p>
+          {yourVoice}
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
             Measured from your microphone, compared with your normal voice. It can be thrown off by noise, so treat it
             as a rough guide.
@@ -105,7 +115,18 @@ function FeedbackCard({
   );
 }
 
-export function ScenarioTranscript({ scenario, pending, voice, onPlay, onStop, onNext, nextDisabled }: Props) {
+export function ScenarioTranscript({
+  scenario,
+  pending,
+  voice,
+  onPlay,
+  onStop,
+  onPlayRecording,
+  voiceCopy,
+  recordingFor,
+  onNext,
+  nextDisabled,
+}: Props) {
   const play = (index: number, label: string, small = true) => {
     const key = scenarioTurnKey(scenario, index);
     return (
@@ -120,6 +141,54 @@ export function ScenarioTranscript({ scenario, pending, voice, onPlay, onStop, o
     );
   };
   const canPlay = !voice.unavailable;
+
+  /**
+   * When the words were right but the tone wasn't: their sentence in a copy of
+   * their own voice, said the better way, next to their own recording.
+   */
+  const yourVoice = (feedback: Feedback, reply: string, number: number) => {
+    const better = feedback.tone?.better;
+    if (!better || !reply) return null;
+    const inVoiceKey = `${scenario.id}:your-voice:${number}`;
+    const recordingKey = `${scenario.id}:recording:${number}`;
+    const recording = recordingFor(number);
+    return (
+      <div className="flex flex-col gap-2 rounded-xl bg-violet-50 px-3 py-2.5 dark:bg-violet-950/40">
+        <p>
+          <span className="font-medium">Try it {better}:</span> “{reply}”
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {voiceCopy && canPlay && (
+            <PlayButton
+              label="Hear it in your voice"
+              small
+              active={voice.activeKey === inVoiceKey}
+              status={voice.status}
+              onPlay={() =>
+                onPlay([{ text: reply, emotion: feedback.feeling, voice: "user", delivery: better }], inVoiceKey, voiceCopy)
+              }
+              onStop={onStop}
+            />
+          )}
+          {recording && (
+            <PlayButton
+              label="Your recording"
+              small
+              active={voice.activeKey === recordingKey}
+              status={voice.status}
+              onPlay={() => onPlayRecording(recording, recordingKey)}
+              onStop={onStop}
+            />
+          )}
+        </div>
+        {!voiceCopy && (
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            To hear this in your own voice, redo your normal voice from Progress and tick the voice copy box.
+          </p>
+        )}
+      </div>
+    );
+  };
 
   // Each feedback turn, with the reply it is about, for the review at the end.
   const reviews = scenario.turns.flatMap((turn, index) => {
@@ -190,6 +259,7 @@ export function ScenarioTranscript({ scenario, pending, voice, onPlay, onStop, o
                       feedback={review.feedback}
                       characterName={scenario.characterName}
                       play={canPlay ? play(review.index, "Hear feedback") : null}
+                      yourVoice={yourVoice(review.feedback, review.reply, review.number)}
                     />
                   ))}
                 </div>

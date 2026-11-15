@@ -5,17 +5,19 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { messageOf, postConversation } from "@/lib/client/api";
+import { deleteVoiceCopy, messageOf, postConversation } from "@/lib/client/api";
 import { turnsSegments } from "@/lib/client/scenarioSpeech";
 import {
   clearScenario,
   loadBaseline,
+  loadVoiceCopy,
   loadEmotionSet,
   loadLength,
   saveEmotionSet,
   loadScenario,
   saveLength,
   saveScenario,
+  saveVoiceCopy,
   type SavedScenario,
 } from "@/lib/client/storage";
 import { useVoice } from "@/lib/client/useVoice";
@@ -86,10 +88,16 @@ export default function ScenarioPractice() {
   // only when they choose it, from the link under the reply box.
   const [baseline, setBaseline] = useState<Baseline | null>(() => loadBaseline());
   const [askBaseline, setAskBaseline] = useState(false);
+  // A copy of the person's voice, made only with their consent (YOUR-VOICE.md).
+  const [voiceCopy, setVoiceCopy] = useState<string | null>(() => loadVoiceCopy());
+  const [voiceCopyError, setVoiceCopyError] = useState<string | null>(null);
+  // The person's own spoken replies this visit, by "<scenario id>:<reply number>",
+  // so they can be played next to the better version. Not saved: they are audio.
+  const recordings = useRef(new Map<string, string>());
   const [showProgress, setShowProgress] = useState(false);
 
   const voice = useVoice();
-  const { play, stop } = voice;
+  const { play, playRecording, stop } = voice;
 
   // Bumped by Start again and Next scenario, so an answer about the old
   // scenario is dropped.
@@ -187,6 +195,9 @@ export default function ScenarioPractice() {
     const reply = text.trim();
     if (!reply || waiting || pending || !scenario || scenario.done) return false;
     stop();
+    if (spoken?.audio) {
+      recordings.current.set(`${scenario.id}:${scenario.exchanges + 1}`, URL.createObjectURL(spoken.audio));
+    }
     const delivery: ReplyDelivery | undefined = spoken
       ? { measured: spoken.delivery, words: spoken.words, baseline }
       : undefined;
@@ -214,6 +225,19 @@ export default function ScenarioPractice() {
     stop();
     setPending(null);
     setChoosing(true);
+  };
+
+  const removeVoiceCopy = async () => {
+    if (!voiceCopy) return;
+    if (!window.confirm("Delete the copy of your voice from ElevenLabs? This can't be undone. You can make a new one any time.")) return;
+    setVoiceCopyError(null);
+    try {
+      await deleteVoiceCopy(voiceCopy);
+      saveVoiceCopy(null);
+      setVoiceCopy(null);
+    } catch (e) {
+      setVoiceCopyError(messageOf(e));
+    }
   };
 
   const restart = () => {
@@ -294,7 +318,21 @@ export default function ScenarioPractice() {
         >
           {baseline ? "Redo my normal voice" : "Set up tone feedback"}
         </button>
+        {voiceCopy && (
+          <button
+            type="button"
+            onClick={() => void removeVoiceCopy()}
+            className="rounded-lg px-3 py-1.5 text-sm text-red-700 ring-1 ring-red-300 hover:bg-red-50 dark:text-red-300 dark:ring-red-900 dark:hover:bg-red-950/40"
+          >
+            Delete my voice copy
+          </button>
+        )}
       </div>
+      {voiceCopyError && (
+        <p role="alert" className="text-sm text-red-700 dark:text-red-300">
+          {voiceCopyError}
+        </p>
+      )}
     </div>
   );
 
@@ -405,6 +443,9 @@ export default function ScenarioPractice() {
               voice={voice}
               onPlay={play}
               onStop={stop}
+              onPlayRecording={playRecording}
+              voiceCopy={voiceCopy}
+              recordingFor={(n) => recordings.current.get(`${scenario.id}:${n}`) ?? null}
               onNext={nextScenario}
               nextDisabled={waiting !== null}
             />
@@ -448,9 +489,11 @@ export default function ScenarioPractice() {
         {askBaseline && scenario && !choosing && (
           <VoiceBaseline
             redo={baseline !== null}
+            existingCopy={voiceCopy}
             onRecordStart={stop}
-            onDone={(next) => {
+            onDone={(next, copy) => {
               setBaseline(next);
+              if (copy) setVoiceCopy(copy);
               setAskBaseline(false);
             }}
             onSkip={() => setAskBaseline(false)}

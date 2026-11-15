@@ -97,27 +97,29 @@ Shared changes, made by Person A first (task YA0) and merged into `main`:
 - `lib/mock-conversation.ts`: the scripted mode returns a `better` suggestion
   and pretends to make a voice copy, so the page can be built for free.
 
+Status: all tasks were built by Alex's Claude on the `alex` branch and tested free with the keys paused, using a pretend voice copy. The real voice copy has not been made yet: that needs the Voices permission on the ElevenLabs key, and costs credit for the clips.
+
 ### Person A tasks
 
-- [ ] YA0. Shared types and scripted-mode changes, merged into `main` first
-- [ ] YA1. `POST /api/voice-copy`: sample recording in, voice ID out (ElevenLabs
-      "add voice"). `DELETE /api/voice-copy`: removes it.
-- [ ] YA2. Conversation reply: words first, then tone only if the words were in
+- [x] YA0. Shared types and scripted-mode changes, merged into `main` first
+- [x] YA1. `POST /api/voice-copy`: sample recording in, voice ID out (ElevenLabs
+      "add voice"). `DELETE /api/voice-copy`: removes it. (Implemented as `/api/voice-copy`; only voices this site made, named "InterpretTime voice copy …", can be used or deleted.)
+- [x] YA2. Conversation reply: words first, then tone only if the words were in
       tune, and `better` when the tone didn't fit
-- [ ] YA3. `/api/speak` speaks in the user's voice copy with the `better`
+- [x] YA3. `/api/speak` speaks in the user's voice copy with the `better`
       delivery
-- [ ] YA4. Safety limits: delivery text short and plain, only the user's own
+- [x] YA4. Safety limits: delivery text short and plain, only the user's own
       voice ID, sample size limits
 
 ### Person B tasks
 
-- [ ] YB1. Longer normal-voice step (about a minute), with the consent tick box,
+- [x] YB1. Longer normal-voice step (about a minute), with the consent tick box,
       sending the sample to `/api/voice-copy` when ticked
-- [ ] YB2. Keep the original recording of each spoken reply in the browser, so
+- [x] YB2. Keep the original recording of each spoken reply in the browser, so
       it can be played next to the improved version
-- [ ] YB3. Feedback card: "Hear it in your voice" (made on tap, then kept),
+- [x] YB3. Feedback card: "Hear it in your voice" (made on tap, then kept),
       plus "Your recording" for comparison
-- [ ] YB4. "Delete my voice copy" button, and redo replaces the old copy
+- [x] YB4. "Delete my voice copy" button, and redo replaces the old copy
 
 ## Timeline (about 4 hours)
 

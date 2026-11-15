@@ -91,6 +91,9 @@ When the user speaks their reply, you also get a short description of how their 
 - fit: in_tune, partly or missed, using the same idea as for words. Roughly, someone sad or afraid is helped by a voice that is a little slower, softer and steady; someone happy by a livelier, brighter voice that shares the mood; someone angry by a calm, even voice that does not rise to meet theirs; someone calm by an ordinary relaxed voice. For deeper emotions, go by the closest basic one: a frustrated or sarcastic person is helped by a calm, even voice; a disappointed, nervous or embarrassed person by a softer, steady one; an excited or relieved person by a livelier, warm one; a bored person by an ordinary or slightly livelier one. The measurements cannot detect sarcasm in the user's own voice, so never claim they sounded sarcastic. A voice close to their normal one is fine for most situations, so treat it as at least partly in tune, and in tune for a calm character.
 - heard: how their voice seemed to come across, in a few plain words, like "quick and a little louder than usual" or "slow and soft". Only describe what the measurements say, and say "seemed" or "came across as", because a measurement is not certain.
 - tip: one short spoken sentence on what to try with their voice next time, or what to keep doing.
+- better: only when the tone was partly or missed, how they could have said the same sentence instead, as a few plain words describing a voice, like "softer, slower and warm" or "calm and even, not rushed". Two to six words, letters and commas only. It is given to a voice generator that says their exact sentence in a copy of their own voice, so describe the delivery, not the words. Null when the tone was in tune.
+
+Words come first. Only judge tone when their words were in tune. If the words were partly or missed, set tone to null even when you have a description of their voice: the person should work on one thing at a time, and the right words matter more than the right tone.
 
 Measurements can be thrown off by a noisy room or the microphone, so never be harsh about tone. When there is no description of their voice, set tone to null.
 
@@ -124,12 +127,30 @@ const replySchema = z.object({
     emotion: emotion.describe("The emotion of the character's next line. Use neutral for the review."),
   }),
   tone: z
-    .object({ fit: z.enum(["in_tune", "partly", "missed"]), heard: z.string(), tip: z.string() })
+    .object({
+      fit: z.enum(["in_tune", "partly", "missed"]),
+      heard: z.string(),
+      tip: z.string(),
+      better: z
+        .string()
+        .nullable()
+        .describe("How they could have said it, e.g. 'softer, slower and warm'. Null when the tone was in tune."),
+    })
     .nullable()
-    .describe("Feedback on how their voice sounded. Null when there is no description of their voice."),
+    .describe("Feedback on how their voice sounded. Null when there is no description of their voice, or the words were not in tune."),
 });
 
 const hintSchema = z.object({ text: z.string() });
+
+/**
+ * Keeps a "better tone" description safe to hand to the voice: a few plain
+ * words, no brackets or symbols. Null if nothing usable is left.
+ */
+function betterDelivery(text: string | null): string | null {
+  if (!text) return null;
+  const clean = text.replace(/[^a-zA-Z ,'-]/g, " ").replace(/\s+/g, " ").trim().slice(0, 60).replace(/[ ,]+$/, "");
+  return clean.length >= 2 ? clean : null;
+}
 
 // --- Choosing the next scenario's emotion --------------------------------------
 
@@ -278,8 +299,14 @@ export async function replyToScenario(
     exampleReply: speakable(judged.exampleReply),
     usedHint,
     tone:
-      voice && judged.tone
-        ? { fit: judged.tone.fit, heard: speakable(judged.tone.heard), tip: speakable(judged.tone.tip) }
+      // Words first: tone only counts when the words were in tune.
+      voice && judged.fit === "in_tune" && judged.tone
+        ? {
+            fit: judged.tone.fit,
+            heard: speakable(judged.tone.heard),
+            tip: speakable(judged.tone.tip),
+            better: judged.tone.fit === "in_tune" ? null : betterDelivery(judged.tone.better),
+          }
         : null,
   };
   const next: ScenarioTurn = done

@@ -12,7 +12,7 @@ export async function POST(request: Request): Promise<Response> {
   if (!apiKey) return jsonError(503, "Voice is not set up yet.");
 
   try {
-    const audio = await speak(apiKey, body.data.segments);
+    const audio = await speak(apiKey, body.data.segments, body.data.userVoiceId);
     return new Response(audio, {
       headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store" },
     });

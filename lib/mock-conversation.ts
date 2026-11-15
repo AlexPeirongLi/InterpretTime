@@ -176,6 +176,7 @@ export function mockReply(
   // The script has no real judgement of tone: any measured spoken reply gets
   // the same example tone feedback, so the page can show it.
   const spoken = delivery?.measured.pitchHz != null;
+  const toneJudged = spoken && fit === "in_tune";
   const feedback: Feedback = {
     fit,
     feeling,
@@ -184,11 +185,13 @@ export function mockReply(
     tryThis: script.tryThis,
     exampleReply: script.exampleReply,
     usedHint,
-    tone: spoken
+    // Words first: tone is only judged when the words were in tune.
+    tone: toneJudged
       ? {
           fit: "partly",
           heard: "seemed a little quick, at about your normal loudness",
           tip: `Try slowing down a little, so ${script.name} feels you have time for them.`,
+          better: "softer, a little slower and warm",
         }
       : null,
   };
@@ -210,7 +213,7 @@ export function mockReply(
       ],
     },
     progress: {
-      results: [...progress.results, { emotion: feeling, fit, usedHint, ...(spoken ? { toneFit: "partly" as const } : {}) }],
+      results: [...progress.results, { emotion: feeling, fit, usedHint, ...(toneJudged ? { toneFit: "partly" as const } : {}) }],
     },
     mock: true,
   };

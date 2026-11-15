@@ -13,6 +13,8 @@ export type Recording = {
   text: string;
   /** How their voice sounded (see lib/delivery.ts). Null if it could not be measured. */
   delivery: Delivery | null;
+  /** The recording itself, kept in the browser (to play back, or to make a voice copy). */
+  audio: Blob | null;
 };
 
 /** Measures the voice while recording, from the same microphone stream. */
@@ -87,7 +89,7 @@ export function useRecorder() {
   const finish = useCallback(
     async ({ transcribe = true }: { transcribe?: boolean } = {}): Promise<Recording> => {
       const r = recorder.current;
-      if (!r) return { text: "", delivery: null };
+      if (!r) return { text: "", delivery: null, audio: null };
       const audio = await new Promise<Blob>((resolve) => {
         r.onstop = () => resolve(new Blob(chunks.current, { type: r.mimeType || "audio/webm" }));
         r.stop();
@@ -99,11 +101,11 @@ export function useRecorder() {
       }
       if (!transcribe) {
         setStatus("idle");
-        return { text: "", delivery };
+        return { text: "", delivery, audio };
       }
       setStatus("transcribing");
       try {
-        return { text: await postTranscribe(audio), delivery };
+        return { text: await postTranscribe(audio), delivery, audio };
       } finally {
         setStatus("idle");
       }

@@ -58,12 +58,27 @@ export type ChatResponse = { reply: AiTurn; profile: Profile; mock: boolean };
 
 // Which voice speaks a segment. Conversation mode uses both; Quickfire only
 // uses the narrator.
-export type Voice = "narrator" | "character";
+// "user" is a copy of the person's own voice (see YOUR-VOICE.md).
+export type Voice = "narrator" | "character" | "user";
 
 // POST /api/speak (JSON) -> audio/mpeg bytes. A missing voice means "narrator".
 export type SpeakRequest = {
-  segments: (Pick<Segment, "text" | "emotion"> & { voice?: Voice })[];
+  segments: (Pick<Segment, "text" | "emotion"> & {
+    voice?: Voice;
+    /**
+     * How to say it, in a few plain words ("softer, slower and warm"). Replaces
+     * the emotion's usual voice instruction. Used for "Hear it in your voice".
+     */
+    delivery?: string;
+  })[];
+  /** Needed when a segment uses voice "user": the ID from /api/voice-copy. */
+  userVoiceId?: string;
 };
+
+// POST /api/voice-copy (multipart: file field "audio", field "consent" = "yes")
+//   -> JSON VoiceCopyResponse. Makes a copy of the person's voice.
+// DELETE /api/voice-copy (JSON { voiceId }) -> JSON { deleted: true }.
+export type VoiceCopyResponse = { voiceId: string; mock: boolean };
 
 // POST /api/transcribe (multipart form, file field "audio") -> JSON
 export type TranscribeResponse = { text: string };
@@ -203,4 +218,9 @@ export type ToneFeedback = {
   heard: string;
   /** One sentence. */
   tip: string;
+  /**
+   * When the tone didn't fit: how it would have fitted, in a few plain words
+   * ("softer, slower and warm"). Used to say their sentence in their own voice.
+   */
+  better?: string | null;
 };
