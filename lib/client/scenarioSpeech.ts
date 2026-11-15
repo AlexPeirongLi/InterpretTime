@@ -46,8 +46,12 @@ export function feedbackScript(feedback: Feedback, characterName: string): strin
   return parts.filter(Boolean).join(" ");
 }
 
-/** The segments for one turn. The person's own replies are not read out. */
-export function turnSegments(turn: ScenarioTurn, scenario: Scenario): Segments {
+/**
+ * The segments for one turn. The person's own replies are not read out.
+ * A step-in's example line is said in the person's own voice when they have a
+ * voice copy (pass it to play as userVoiceId), otherwise by the narrator.
+ */
+export function turnSegments(turn: ScenarioTurn, scenario: Scenario, ownVoice = false): Segments {
   switch (turn.role) {
     case "narrator":
     case "hint":
@@ -59,6 +63,11 @@ export function turnSegments(turn: ScenarioTurn, scenario: Scenario): Segments {
       return narrate(feedbackScript(turn.feedback, scenario.characterName));
     case "user":
       return [];
+    case "practice":
+      return [
+        ...narrate(turn.intro),
+        { text: turn.line, emotion: turn.feeling, voice: ownVoice ? "user" : "narrator", delivery: turn.delivery },
+      ];
   }
 }
 
@@ -66,9 +75,9 @@ export function turnSegments(turn: ScenarioTurn, scenario: Scenario): Segments {
  * The segments for several new turns, played as one clip. Feedback is left
  * out: it is kept for the review at the end, where each card can be played.
  */
-export function turnsSegments(turns: ScenarioTurn[], scenario: Scenario): Segments {
+export function turnsSegments(turns: ScenarioTurn[], scenario: Scenario, ownVoice = false): Segments {
   return turns
     .filter((t) => t.role !== "feedback")
-    .flatMap((t) => turnSegments(t, scenario))
+    .flatMap((t) => turnSegments(t, scenario, ownVoice))
     .slice(0, MAX_SEGMENTS);
 }

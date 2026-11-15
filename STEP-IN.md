@@ -106,22 +106,24 @@ hidden until the review), so knowing when to step in costs nothing extra.
 |---|---|---|
 | Branch | `alex` | your own branch, e.g. `step-in-page` |
 
+Status: all tasks were built by Alex's Claude on the `alex` branch, with the "Move on for now" button after 3 tries, and tested free with the keys paused. Not yet tried with the real AI and voice.
+
 ### Person A tasks
 
-- [ ] SA0. Shared types and scripted mode, merged into `main` first
-- [ ] SA1. Reply response includes `stepIn` after two misses in a row
-- [ ] SA2. `copy` action: tone check of an attempt against the target, plus a
+- [x] SA0. Shared types and scripted mode, merged into `main` first
+- [x] SA1. Reply response includes `stepIn` after two misses in a row
+- [x] SA2. `copy` action: tone check of an attempt against the target, plus a
       nudge
-- [ ] SA3. Reply marked as a step-in, so the character answers the copied line
+- [x] SA3. Reply marked as a step-in, so the character answers the copied line
       and the review mentions it
 
 ### Person B tasks
 
-- [ ] SB1. Step-in card: pause line, example in your voice (or the narrator's),
+- [x] SB1. Step-in card: pause line, example in your voice (or the narrator's),
       replay, microphone
-- [ ] SB2. Word check on the page, tries counter, nudge, retry
-- [ ] SB3. "Move on for now" after 3 tries
-- [ ] SB4. Step-ins shown in the review and counted in progress
+- [x] SB2. Word check on the page, tries counter, nudge, retry
+- [x] SB3. "Move on for now" after 3 tries
+- [x] SB4. Step-ins shown in the review and counted in progress
 
 ## Timeline (about 4 hours)
 

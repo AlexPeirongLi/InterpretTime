@@ -5,6 +5,8 @@ import type {
   ChatResponse,
   ConversationRequest,
   ConversationResponse,
+  CopyCheckRequest,
+  CopyCheckResponse,
   SpeakRequest,
   TranscribeResponse,
   VoiceCopyResponse,
@@ -49,6 +51,10 @@ const json = (body: unknown): RequestInit => ({
 
 export async function postChat(request: ChatRequest): Promise<ChatResponse> {
   return (await send("/api/chat", json(request))).json();
+}
+
+export async function postCopyCheck(request: CopyCheckRequest): Promise<CopyCheckResponse> {
+  return (await send("/api/copy-check", json(request))).json();
 }
 
 export async function postConversation(request: ConversationRequest): Promise<ConversationResponse> {

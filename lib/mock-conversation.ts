@@ -4,16 +4,20 @@
 // follows the same shapes as the real route but is not smart: it judges
 // replies by looking for a few words.
 
-import { currentFeeling, hintsThisTurn, repliesFor } from "./conversation";
+import { currentFeeling, hintsThisTurn, pendingPractice, repliesFor, shouldStepIn } from "./conversation";
+import { EMOTION_LABELS } from "./emotions";
 import {
   HINTS_PER_TURN,
   type ConversationLength,
   type ConversationProgress,
+  type CopyCheckRequest,
+  type CopyCheckResponse,
   type ConversationResponse,
   type Emotion,
   type EmotionSet,
   type Feedback,
   type Fit,
+  type PracticeTurn,
   type ReplyDelivery,
   type Scenario,
 } from "./types";
@@ -197,6 +201,20 @@ export function mockReply(
   };
   const exchanges = scenario.exchanges + 1;
   const done = exchanges >= repliesFor(scenario);
+  const characterLine = { text: script.lines[exchanges % script.lines.length], emotion: script.emotion };
+  // Two replies in a row not in tune: pause and practise (see STEP-IN.md).
+  const practice: PracticeTurn | null = shouldStepIn(scenario, fit, done)
+    ? {
+        role: "practice",
+        intro: `Let's pause for a moment. ${script.name} seems ${EMOTION_LABELS[feeling].toLowerCase()}. Here's one way you could reply. Listen, then say it back the same way.`,
+        line: script.exampleReply,
+        delivery: "soft, slow and warm",
+        feeling,
+        tries: 0,
+        outcome: "pending",
+        heldLine: characterLine,
+      }
+    : null;
 
   return {
     scenario: {
@@ -207,12 +225,11 @@ export function mockReply(
         ...scenario.turns,
         { role: "user", text },
         { role: "feedback", feedback },
-        done
-          ? { role: "wrapup", text: script.wrapup }
-          : { role: "character", text: script.lines[exchanges % script.lines.length], emotion: script.emotion },
+        done ? { role: "wrapup", text: script.wrapup } : (practice ?? { role: "character", ...characterLine }),
       ],
     },
     progress: {
+      ...progress,
       results: [...progress.results, { emotion: feeling, fit, usedHint, ...(toneJudged ? { toneFit: "partly" as const } : {}) }],
     },
     mock: true,
@@ -227,4 +244,40 @@ export function mockHint(scenario: Scenario, progress: ConversationProgress): Co
     progress,
     mock: true,
   };
+}
+
+/** Ends a step-in in the scripted mode: copied gets the next scripted line, skipped the held one. */
+export function mockFinishPractice(
+  scenario: Scenario,
+  progress: ConversationProgress,
+  outcome: "copied" | "skipped",
+): ConversationResponse {
+  const practice = pendingPractice(scenario);
+  if (!practice) throw new Error("There is no step-in to finish.");
+  const index = scenario.turns.lastIndexOf(practice);
+  const turns = scenario.turns.map((t, i) => (i === index ? { ...practice, outcome } : t));
+  const stepIns = progress.stepIns ?? { copied: 0, skipped: 0 };
+  const script = scriptOf(scenario);
+  const copiedLine = { text: script.lines[(scenario.exchanges + 1) % script.lines.length], emotion: script.emotion };
+  return {
+    scenario: {
+      ...scenario,
+      turns:
+        outcome === "copied"
+          ? [...turns, { role: "user", text: practice.line, practised: true }, { role: "character", ...copiedLine }]
+          : [...turns, { role: "character", ...practice.heldLine }],
+    },
+    progress: { ...progress, stepIns: { ...stepIns, [outcome]: stepIns[outcome] + 1 } },
+    mock: true,
+  };
+}
+
+/** The scripted copy check: not quite on the first try, right on the second. */
+export function mockCopyCheck(req: CopyCheckRequest): CopyCheckResponse {
+  if (req.attempt.measured.pitchHz == null) {
+    return { matched: false, heard: "", nudge: "I couldn't hear your voice clearly that time. Try again a little closer to the microphone.", mock: true };
+  }
+  return req.tryNumber >= 2
+    ? { matched: true, heard: "seemed softer and slower", nudge: "That's it. That sounded caring.", mock: true }
+    : { matched: false, heard: "seemed a little quick", nudge: "Nearly. Try it a little slower and softer.", mock: true };
 }

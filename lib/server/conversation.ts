@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { currentFeeling, hintsThisTurn, repliesFor } from "@/lib/conversation";
-import { EMOTIONS, emotionsFor } from "@/lib/emotions";
+import { currentFeeling, hintsThisTurn, pendingPractice, repliesFor, shouldStepIn } from "@/lib/conversation";
+import { EMOTION_LABELS, EMOTIONS, emotionsFor } from "@/lib/emotions";
 import {
   HINTS_PER_TURN,
   REPLIES_BY_LENGTH,
@@ -11,11 +11,15 @@ import {
   type Emotion,
   type Feedback,
   type Fit,
+  type CopyCheckRequest,
+  type CopyCheckResponse,
+  type PracticeTurn,
   type ReplyDelivery,
   type Scenario,
   type ScenarioTurn,
 } from "@/lib/types";
 import { askClaude, speakable } from "./claude";
+import { UpstreamError } from "./env";
 import { describeDelivery } from "./describeDelivery";
 
 const SYSTEM_PROMPT = `You run the conversation mode of InterpretTime, a website where people practise recognising emotion in speech and responding to it. The people who use it find emotions hard to read. Many have alexithymia. They have chosen to practise.
@@ -122,6 +126,9 @@ const replySchema = z.object({
   wentWell: z.string(),
   tryThis: z.string(),
   exampleReply: z.string(),
+  exampleDelivery: z
+    .string()
+    .describe("How to say exampleReply so it fits the feeling, in two to six plain words, e.g. 'soft, slow and warm'."),
   next: z.object({
     text: z.string().describe("The character's next line, or the review if this was the last reply."),
     emotion: emotion.describe("The emotion of the character's next line. Use neutral for the review."),
@@ -196,6 +203,8 @@ function describeTurn(turn: ScenarioTurn, name: string): string {
     }
     case "hint":
       return `Your hint (level ${turn.level}): ${turn.text}`;
+    case "practice":
+      return `(Step-in: you paused the scene and the user practised saying '${turn.line}', ${turn.outcome === "copied" ? `and copied it on try ${turn.tries}` : turn.outcome === "skipped" ? `and moved on after ${turn.tries} tries` : "and is trying now"}.)`;
     case "wrapup":
       return `Your review: ${turn.text}`;
   }
@@ -309,9 +318,15 @@ export async function replyToScenario(
           }
         : null,
   };
+  const characterLine = { text: speakable(judged.next.text), emotion: judged.next.emotion };
+  // Two replies in a row not in tune: pause and practise, instead of the
+  // character answering straight away. Their answer is kept for "move on".
+  const stepIn = shouldStepIn(scenario, feedback.fit, done);
   const next: ScenarioTurn = done
     ? { role: "wrapup", text: speakable(judged.next.text) }
-    : { role: "character", text: speakable(judged.next.text), emotion: judged.next.emotion };
+    : stepIn
+      ? practiceTurn(scenario.characterName, feeling, feedback.exampleReply, judged.exampleDelivery, characterLine)
+      : { role: "character", ...characterLine };
 
   return {
     scenario: {
@@ -321,6 +336,7 @@ export async function replyToScenario(
       turns: [...scenario.turns, { role: "user", text }, { role: "feedback", feedback }, next],
     },
     progress: {
+      ...progress,
       results: [
         ...progress.results,
         { emotion: feeling, fit: feedback.fit, usedHint, ...(feedback.tone ? { toneFit: feedback.tone.fit } : {}) },
@@ -328,6 +344,94 @@ export async function replyToScenario(
     },
     mock: false,
   };
+}
+
+function practiceTurn(
+  name: string,
+  feeling: Emotion,
+  line: string,
+  delivery: string,
+  heldLine: PracticeTurn["heldLine"],
+): PracticeTurn {
+  return {
+    role: "practice",
+    intro: `Let's pause for a moment. ${name} seems ${EMOTION_LABELS[feeling].toLowerCase()}. Here's one way you could reply. Listen, then say it back the same way.`,
+    line,
+    delivery: betterDelivery(delivery) ?? "calm and warm",
+    feeling,
+    tries: 0,
+    outcome: "pending",
+    heldLine,
+  };
+}
+
+/**
+ * Ends a step-in. Copied: their copied line becomes a reply and the character
+ * answers it (one small AI call). Skipped: the character's answer to their
+ * original reply, kept when the step-in started, is used, at no cost.
+ */
+export async function finishPractice(
+  scenario: Scenario,
+  progress: ConversationProgress,
+  outcome: "copied" | "skipped",
+): Promise<ConversationResponse> {
+  const practice = pendingPractice(scenario);
+  if (!practice) throw new UpstreamError("There is no step-in to finish.");
+  const index = scenario.turns.lastIndexOf(practice);
+  const done: PracticeTurn = { ...practice, outcome };
+  const turns = scenario.turns.map((t, i) => (i === index ? done : t));
+  const stepIns = progress.stepIns ?? { copied: 0, skipped: 0 };
+  const nextProgress: ConversationProgress = {
+    ...progress,
+    stepIns: { ...stepIns, [outcome]: stepIns[outcome] + 1 },
+  };
+
+  if (outcome === "skipped") {
+    return {
+      scenario: { ...scenario, turns: [...turns, { role: "character", ...practice.heldLine }] },
+      progress: nextProgress,
+      mock: false,
+    };
+  }
+
+  const withLine: Scenario = { ...scenario, turns: [...turns, { role: "user", text: practice.line, practised: true }] };
+  const answer = await askClaude(
+    SYSTEM_PROMPT,
+    [
+      describeScenario(withLine),
+      `The user has just said the practised line to ${scenario.characterName}. Write ${scenario.characterName}'s next line, answering it naturally. It is not the last reply, so the conversation carries on.`,
+    ].join("\n\n"),
+    z.object({ text: z.string(), emotion }),
+  );
+  return {
+    scenario: { ...withLine, turns: [...withLine.turns, { role: "character", text: speakable(answer.text), emotion: answer.emotion }] },
+    progress: nextProgress,
+    mock: false,
+  };
+}
+
+/** Did a spoken attempt at a step-in line come across in the target tone? */
+export async function checkCopy(req: CopyCheckRequest): Promise<CopyCheckResponse> {
+  const voice = describeDelivery(req.attempt);
+  if (!voice) {
+    return {
+      matched: false,
+      heard: "",
+      nudge: "I couldn't hear your voice clearly that time. Try again a little closer to the microphone.",
+      mock: false,
+    };
+  }
+  const result = await askClaude(
+    SYSTEM_PROMPT,
+    [
+      `The user is practising saying a line to someone who feels ${req.feeling}, copying an example. The line: ${req.line}`,
+      `The tone to aim for: ${req.target}.`,
+      `How their attempt sounded, as measured:\n${voice}`,
+      `This is try ${req.tryNumber}. Decide whether the main qualities of the target came across, for example slower and softer than usual for "soft and slow". Small differences are fine: matched should be true when it is close. Then write heard (a few plain words, using "seemed") and nudge (one short spoken sentence: what to change next, or a warm "that's it" when matched).`,
+    ].join("\n\n"),
+    z.object({ matched: z.boolean(), heard: z.string(), nudge: z.string() }),
+  );
+  return { matched: result.matched, heard: speakable(result.heard), nudge: speakable(result.nudge), mock: false };
 }
 
 export async function hintForScenario(

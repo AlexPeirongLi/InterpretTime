@@ -130,6 +130,12 @@ function Summary({ progress, emotions }: { progress: ConversationProgress; emoti
           </li>
         ))}
       </ul>
+      {progress.stepIns && progress.stepIns.copied + progress.stepIns.skipped > 0 && (
+        <p className="text-sm text-zinc-700 dark:text-zinc-200">
+          <span className="font-medium">Lines practised:</span> {progress.stepIns.copied + progress.stepIns.skipped}, and you
+          got {progress.stepIns.copied} of them sounding right.
+        </p>
+      )}
       {focus && focus.score < 0.75 && (
         <p className="text-sm text-zinc-700 dark:text-zinc-200">
           <span className="font-medium">Worth practising next:</span> {EMOTION_LABELS[focus.emotion].toLowerCase()}.

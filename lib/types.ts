@@ -116,10 +116,30 @@ export type ScenarioTurn =
   | { role: "narrator"; text: string }
   /** Spoken in the character voice, in this emotion. */
   | { role: "character"; text: string; emotion: Emotion }
-  | { role: "user"; text: string }
+  /** practised: true when this is a line copied during a step-in. */
+  | { role: "user"; text: string; practised?: boolean }
   | { role: "feedback"; feedback: Feedback }
   | { role: "hint"; level: 1 | 2; text: string }
-  | { role: "wrapup"; text: string };
+  | { role: "wrapup"; text: string }
+  /** A step-in after two replies in a row that weren't in tune. See STEP-IN.md. */
+  | PracticeTurn;
+
+export type PracticeTurn = {
+  role: "practice";
+  /** The narrator's pause, e.g. "Let's pause. Robin seems sad. Here's one way you could reply." */
+  intro: string;
+  /** A good reply for the person to copy. */
+  line: string;
+  /** How to say it, in a few plain words ("soft, slow and warm"). */
+  delivery: string;
+  /** What the character was feeling. */
+  feeling: Emotion;
+  /** Attempts so far. */
+  tries: number;
+  outcome: "pending" | "copied" | "skipped";
+  /** The character's answer to the original reply, used if the person moves on without copying. */
+  heldLine: { text: string; emotion: Emotion };
+};
 
 export type Scenario = {
   id: string;
@@ -151,7 +171,11 @@ export type ConversationResult = {
   /** How well the tone fitted. Only for spoken replies. */
   toneFit?: Fit;
 };
-export type ConversationProgress = { results: ConversationResult[] };
+export type ConversationProgress = {
+  results: ConversationResult[];
+  /** Step-ins so far: how many were copied, and how many moved on from. */
+  stepIns?: { copied: number; skipped: number };
+};
 
 // POST /api/conversation (JSON)
 export type ConversationRequest =
@@ -164,7 +188,32 @@ export type ConversationRequest =
       /** Only for spoken replies. */
       delivery?: ReplyDelivery;
     }
-  | { action: "hint"; scenario: Scenario; progress: ConversationProgress };
+  | { action: "hint"; scenario: Scenario; progress: ConversationProgress }
+  /**
+   * Ends a step-in. "copied": the person copied the line, which becomes their
+   * reply and the character answers it. "skipped": they moved on for now.
+   */
+  | { action: "practised"; scenario: Scenario; progress: ConversationProgress; outcome: "copied" | "skipped" };
+
+// POST /api/copy-check (JSON): did a spoken attempt at a step-in line come
+// across in the right tone? The words are checked on the page first.
+export type CopyCheckRequest = {
+  line: string;
+  /** The tone to aim for, e.g. "soft, slow and warm". */
+  target: string;
+  feeling: Emotion;
+  attempt: ReplyDelivery;
+  /** Which try this is, from 1. */
+  tryNumber: number;
+};
+export type CopyCheckResponse = {
+  matched: boolean;
+  /** How it seemed to come across, e.g. "a little quick". Empty if it couldn't be measured. */
+  heard: string;
+  /** One short sentence: what to change, or well done. */
+  nudge: string;
+  mock: boolean;
+};
 
 /** Always the whole updated scenario. The page replaces its copy. */
 export type ConversationResponse = {

@@ -190,6 +190,9 @@ export function ScenarioTranscript({
     );
   };
 
+  // Step-ins, listed in the review.
+  const practices = scenario.turns.flatMap((t) => (t.role === "practice" && t.outcome !== "pending" ? [t] : []));
+
   // Each feedback turn, with the reply it is about, for the review at the end.
   const reviews = scenario.turns.flatMap((turn, index) => {
     if (turn.role !== "feedback") return [];
@@ -232,6 +235,50 @@ export function ScenarioTranscript({
           case "feedback":
             // Kept for the review at the end, so the conversation isn't interrupted.
             return null;
+          case "practice": {
+            const key = `${scenario.id}:practice:${i}`;
+            const lineSegments = turnSegments(turn, scenario, voiceCopy !== null).slice(-1);
+            return (
+              <li
+                key={i}
+                aria-label="Practice this reply"
+                className="flex flex-col gap-3 rounded-2xl bg-violet-50 p-4 ring-1 ring-violet-200 dark:bg-violet-950/40 dark:ring-violet-900"
+              >
+                <span className="text-sm font-semibold uppercase tracking-wide text-violet-800 dark:text-violet-300">
+                  Let&apos;s practise this one
+                </span>
+                <p className="leading-relaxed text-zinc-700 dark:text-zinc-300">{turn.intro}</p>
+                <div className="rounded-xl bg-white px-4 py-3 dark:bg-zinc-950">
+                  <p className="text-lg leading-snug">“{turn.line}”</p>
+                  <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Said {turn.delivery}.</p>
+                </div>
+                {canPlay && (
+                  <div>
+                    <PlayButton
+                      label={voiceCopy ? "Hear it in your voice" : "Hear it again"}
+                      small
+                      active={voice.activeKey === key}
+                      status={voice.status}
+                      onPlay={() => onPlay(lineSegments, key, voiceCopy ?? undefined)}
+                      onStop={onStop}
+                    />
+                  </div>
+                )}
+                <p className="text-sm font-medium text-violet-900 dark:text-violet-200">
+                  {turn.outcome === "copied"
+                    ? `✓ You said it the right way${turn.tries > 1 ? ` on try ${turn.tries}` : ""}.`
+                    : turn.outcome === "skipped"
+                      ? `Moved on after ${turn.tries} tries. That's fine: it's noted in your review.`
+                      : `Your turn: say it back, copying how it sounded.${turn.tries > 0 ? ` Tries so far: ${turn.tries}.` : ""}`}
+                </p>
+                {!voiceCopy && turn.outcome === "pending" && (
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    With a voice copy, you&apos;d hear this in your own voice. Set one up from Progress.
+                  </p>
+                )}
+              </li>
+            );
+          }
           case "hint":
             return (
               <li key={i} className="flex flex-col gap-2 rounded-xl bg-sky-50 px-4 py-3 text-sm text-sky-950 ring-1 ring-sky-200 dark:bg-sky-950/50 dark:text-sky-100 dark:ring-sky-900">
@@ -250,6 +297,17 @@ export function ScenarioTranscript({
                 </span>
                 <p className="leading-relaxed">{turn.text}</p>
                 <div className="flex flex-col gap-3">
+                  {practices.length > 0 && (
+                    <div className="flex flex-col gap-1 rounded-xl bg-violet-50 px-3 py-2.5 text-sm dark:bg-violet-950/40">
+                      <span className="font-medium">Lines you practised</span>
+                      {practices.map((p, n) => (
+                        <p key={n} className="text-zinc-700 dark:text-zinc-300">
+                          “{p.line}”:{" "}
+                          {p.outcome === "copied" ? `got it${p.tries > 1 ? ` on try ${p.tries}` : ""}` : `moved on after ${p.tries} tries`}
+                        </p>
+                      ))}
+                    </div>
+                  )}
                   <span className="text-sm font-medium">Each reply</span>
                   {reviews.map((review) => (
                     <FeedbackCard

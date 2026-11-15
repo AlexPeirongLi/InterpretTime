@@ -5,7 +5,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { deleteVoiceCopy, messageOf, postConversation } from "@/lib/client/api";
+import { deleteVoiceCopy, messageOf, postConversation, postCopyCheck } from "@/lib/client/api";
 import { turnsSegments } from "@/lib/client/scenarioSpeech";
 import {
   clearScenario,
@@ -21,7 +21,15 @@ import {
   type SavedScenario,
 } from "@/lib/client/storage";
 import { useVoice } from "@/lib/client/useVoice";
-import { canHint, hintsThisTurn, repliesFor } from "@/lib/conversation";
+import {
+  canHint,
+  hintsThisTurn,
+  pendingPractice,
+  repliesFor,
+  TRIES_BEFORE_MOVE_ON,
+  WORD_MATCH_NEEDED,
+  wordMatch,
+} from "@/lib/conversation";
 import {
   HINTS_PER_TURN,
   type Baseline,
@@ -32,6 +40,7 @@ import {
   type ConversationResponse,
   type ReplyDelivery,
   type Scenario,
+  type ScenarioTurn,
 } from "@/lib/types";
 import { AnswerBox, type Spoken } from "./AnswerBox";
 import { readyForDeeperConversation } from "@/lib/client/progress";
@@ -47,7 +56,7 @@ const NUDGE_AFTER_MS = 20_000;
 
 const fresh = (): SavedScenario => ({ scenario: null, progress: { results: [] } });
 
-type Waiting = "start" | "reply" | "hint" | null;
+type Waiting = "start" | "reply" | "hint" | "copy" | null;
 /** What went wrong, and what "Try again" should redo. */
 type ErrorState = {
   message: string;
@@ -124,15 +133,15 @@ export default function ScenarioPractice() {
       const known = before && before.id === response.scenario.id ? before.turns.length : 0;
       const added = response.scenario.turns.slice(known);
       const firstSpoken = response.scenario.turns.findIndex((t, i) => i >= known && t.role !== "user");
-      const segments = turnsSegments(added, response.scenario);
+      const segments = turnsSegments(added, response.scenario, voiceCopy !== null);
       if (segments.length && firstSpoken >= 0) {
         const key = scenarioTurnKey(response.scenario, firstSpoken);
         setAutoKey(response.scenario.done ? null : key);
-        void play(segments, key);
+        void play(segments, key, voiceCopy ?? undefined);
       }
       return response;
     },
-    [play],
+    [play, voiceCopy],
   );
 
   const startScenario = async (currentProgress: ConversationProgress, length: ConversationLength) => {
@@ -164,13 +173,14 @@ export default function ScenarioPractice() {
     const current = scenario;
     if (!current || current.done) return;
     const from = current.turns.findLastIndex((t) => t.role === "user") + 1;
-    const spoken = current.turns.slice(from).filter((t) => t.role === "narrator" || t.role === "character");
-    const first = current.turns.findIndex((t, i) => i >= from && (t.role === "narrator" || t.role === "character"));
-    const segments = turnsSegments(spoken, current);
+    const speaks = (t: ScenarioTurn) => t.role === "narrator" || t.role === "character" || t.role === "practice";
+    const spoken = current.turns.slice(from).filter(speaks);
+    const first = current.turns.findIndex((t, i) => i >= from && speaks(t));
+    const segments = turnsSegments(spoken, current, voiceCopy !== null);
     if (segments.length && first >= 0) {
       const key = scenarioTurnKey(current, first);
       setAutoKey(key);
-      void play(segments, key);
+      void play(segments, key, voiceCopy ?? undefined);
     }
   };
 
@@ -217,6 +227,76 @@ export default function ScenarioPractice() {
       ? { measured: spoken.delivery, words: spoken.words, baseline }
       : undefined;
     void sendReply(reply, delivery);
+    return true;
+  };
+
+  // --- Step-ins: copying the example line (STEP-IN.md) ------------------------
+  const [copyNote, setCopyNote] = useState<string | null>(null);
+
+  /** The scenario with the pending step-in's try count set, saved. */
+  const withTries = (current: Scenario, tries: number): Scenario => {
+    const index = current.turns.findLastIndex((t) => t.role === "practice" && t.outcome === "pending");
+    const updated: Scenario = {
+      ...current,
+      turns: current.turns.map((t, i) => (i === index && t.role === "practice" ? { ...t, tries } : t)),
+    };
+    const next: SavedScenario = { scenario: updated, progress };
+    setSaved(next);
+    saveScenario(next);
+    return updated;
+  };
+
+  const finishPractice = async (outcome: "copied" | "skipped", current: Scenario | null = scenario) => {
+    if (!current) return;
+    setWaiting("reply");
+    setError(null);
+    try {
+      await call({ action: "practised", scenario: current, progress, outcome }, current);
+      setCopyNote(null);
+    } catch (e) {
+      setError({ message: messageOf(e) });
+    } finally {
+      setWaiting(null);
+    }
+  };
+
+  const checkAttempt = async (text: string, spoken: Spoken) => {
+    if (!scenario || !practice) return;
+    const tryNumber = practice.tries + 1;
+    const current = withTries(scenario, tryNumber);
+    // Words first, checked here at no cost.
+    if (wordMatch(text, practice.line) < WORD_MATCH_NEEDED) {
+      setCopyNote(`The words were a bit different. Try saying: “${practice.line}”`);
+      return;
+    }
+    setWaiting("copy");
+    setError(null);
+    try {
+      const result = await postCopyCheck({
+        line: practice.line,
+        target: practice.delivery,
+        feeling: practice.feeling,
+        attempt: { measured: spoken.delivery, words: spoken.words, baseline },
+        tryNumber,
+      });
+      setCopyNote(result.nudge);
+      setWaiting(null);
+      if (result.matched) await finishPractice("copied", current);
+    } catch (e) {
+      setError({ message: messageOf(e) });
+      setWaiting(null);
+    }
+  };
+
+  /** The answer box during a step-in: each spoken attempt is checked, not sent as a reply. */
+  const attemptCopy = (text: string, spoken: Spoken | null): boolean => {
+    if (!text.trim() || waiting || !practice) return false;
+    if (!spoken) {
+      setCopyNote("Say it out loud with the microphone, so your tone can be checked too.");
+      return false;
+    }
+    stop();
+    void checkAttempt(text, spoken);
     return true;
   };
 
@@ -283,6 +363,8 @@ export default function ScenarioPractice() {
   // --- "Take your time" note -------------------------------------------------
   const turnId = scenario ? `${scenario.id}:${scenario.exchanges}` : null;
   const myTurn = !!scenario && !scenario.done && !waiting && !pending;
+  // A step-in waiting to be copied (STEP-IN.md).
+  const practice = scenario ? pendingPractice(scenario) : null;
   const quiet = voice.status === "idle" && !voice.blocked;
 
   useEffect(() => {
@@ -297,7 +379,7 @@ export default function ScenarioPractice() {
   const showNudge = myTurn && turnId !== null && nudgeTurn === turnId && activeTurn !== turnId;
 
   const hintsLeft = scenario ? HINTS_PER_TURN - hintsThisTurn(scenario) : 0;
-  const hintAllowed = !!scenario && canHint(scenario) && myTurn;
+  const hintAllowed = !!scenario && canHint(scenario) && myTurn && !practice;
 
   const hintButton = (
     <button
@@ -567,20 +649,39 @@ export default function ScenarioPractice() {
           <div className="sticky bottom-0 -mx-4 flex flex-col gap-2 border-t border-zinc-200 bg-[var(--background)] px-4 pb-4 pt-3 sm:-mx-6 sm:px-6 dark:border-zinc-800">
             <AnswerBox
               disabled={!myTurn}
-              onSend={send}
+              onSend={practice ? attemptCopy : send}
               onRecordStart={() => {
                 markActive();
                 stop();
               }}
               onType={markActive}
-              placeholder={`Say something to ${scenario.characterName}…`}
+              placeholder={practice ? "Say it back, copying how it sounded…" : `Say something to ${scenario.characterName}…`}
               help=""
               checksTone
               autoRecordToken={autoRecordOn && autoKey && voice.endedKey === autoKey ? `${autoKey}:${voice.endedCount}` : null}
               onAutoRecordStarted={() => setAutoKey(null)}
             />
+            {practice && (copyNote || practice.tries >= TRIES_BEFORE_MOVE_ON) && (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-violet-50 px-3 py-2 text-sm dark:bg-violet-950/40">
+                {copyNote && (
+                  <p role="status" className="text-violet-950 dark:text-violet-100">
+                    {copyNote}
+                  </p>
+                )}
+                {practice.tries >= TRIES_BEFORE_MOVE_ON && (
+                  <button
+                    type="button"
+                    onClick={() => void finishPractice("skipped")}
+                    disabled={waiting !== null}
+                    className="py-1 text-sm text-zinc-600 underline underline-offset-4 disabled:opacity-50 dark:text-zinc-300"
+                  >
+                    Move on for now
+                  </button>
+                )}
+              </div>
+            )}
             <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-              {hintButton}
+              {!practice && hintButton}
               <button
                 type="button"
                 onClick={() => changeAutoRecord(!autoRecordOn)}

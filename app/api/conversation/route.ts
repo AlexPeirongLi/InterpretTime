@@ -1,6 +1,6 @@
-import { canHint } from "@/lib/conversation";
-import { mockHint, mockReply, mockStart } from "@/lib/mock-conversation";
-import { hintForScenario, replyToScenario, startScenario } from "@/lib/server/conversation";
+import { canHint, pendingPractice } from "@/lib/conversation";
+import { mockFinishPractice, mockHint, mockReply, mockStart } from "@/lib/mock-conversation";
+import { finishPractice, hintForScenario, replyToScenario, startScenario } from "@/lib/server/conversation";
 import { env, UpstreamError } from "@/lib/server/env";
 import { jsonError } from "@/lib/server/http";
 import { conversationRequestSchema, readJson } from "@/lib/server/validate";
@@ -19,6 +19,10 @@ export async function POST(request: Request): Promise<Response> {
     if (req.action === "hint" && !canHint(req.scenario)) {
       return jsonError(400, "No more hints for this reply.");
     }
+    // During a step-in, the person copies the line or moves on before replying.
+    const practising = pendingPractice(req.scenario) !== null;
+    if (req.action === "reply" && practising) return jsonError(400, "Finish practising the line first, or move on.");
+    if (req.action === "practised" && !practising) return jsonError(400, "There is no step-in to finish.");
   }
 
   const useMock = !env.anthropicKey;
@@ -40,6 +44,8 @@ function answerFromScript(req: ConversationRequest): ConversationResponse {
       return mockReply(req.scenario, req.text, req.progress, req.delivery);
     case "hint":
       return mockHint(req.scenario, req.progress);
+    case "practised":
+      return mockFinishPractice(req.scenario, req.progress, req.outcome);
   }
 }
 
@@ -51,5 +57,7 @@ function answerFromClaude(req: ConversationRequest): Promise<ConversationRespons
       return replyToScenario(req.scenario, req.text, req.progress, req.delivery);
     case "hint":
       return hintForScenario(req.scenario, req.progress);
+    case "practised":
+      return finishPractice(req.scenario, req.progress, req.outcome);
   }
 }
