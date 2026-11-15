@@ -32,6 +32,8 @@ type Props = {
   redo: boolean;
   /** The voice copy made last time, replaced if a new one is made. */
   existingCopy: string | null;
+  /** Start with the voice copy box ticked (when re-recording an existing copy). */
+  copyByDefault?: boolean;
   /** Called when done. voiceCopy is the new copy's ID, or null if none was made. */
   onDone: (baseline: Baseline, voiceCopy: string | null) => void;
   onSkip: () => void;
@@ -41,10 +43,10 @@ type Props = {
 
 const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 
-export function VoiceBaseline({ redo, existingCopy, onDone, onSkip, onRecordStart }: Props) {
+export function VoiceBaseline({ redo, existingCopy, copyByDefault = false, onDone, onSkip, onRecordStart }: Props) {
   const recorder = useRecorder();
   const [error, setError] = useState<string | null>(null);
-  const [consent, setConsent] = useState(false);
+  const [consent, setConsent] = useState(copyByDefault);
   const [making, setMaking] = useState(false);
   const [seconds, setSeconds] = useState(0);
   // Set when the tone baseline worked but the voice copy didn't.
@@ -111,7 +113,9 @@ export function VoiceBaseline({ redo, existingCopy, onDone, onSkip, onRecordStar
       className="flex flex-col gap-3 rounded-2xl bg-violet-50 p-4 ring-1 ring-violet-200 dark:bg-violet-950/40 dark:ring-violet-900"
     >
       <div>
-        <h2 className="font-semibold">{redo ? "Record your normal voice again" : "Get feedback on your tone of voice"}</h2>
+        <h2 className="font-semibold">
+          {existingCopy ? "Re-record your voice copy" : redo ? "Record your normal voice again" : "Get feedback on your tone of voice"}
+        </h2>
         <p className="mt-1 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
           When you speak a reply, I can also tell you how your voice came across. First I need to hear your normal
           voice. Tap record and read this out the way you usually talk. It takes about a minute.

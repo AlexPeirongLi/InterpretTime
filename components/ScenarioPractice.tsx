@@ -100,6 +100,7 @@ export default function ScenarioPractice() {
   // only when they choose it, from the link under the reply box.
   const [baseline, setBaseline] = useState<Baseline | null>(() => loadBaseline());
   const [askBaseline, setAskBaseline] = useState(false);
+  const [copyByDefault, setCopyByDefault] = useState(false);
   // A copy of the person's voice, made only with their consent (YOUR-VOICE.md).
   const [voiceCopy, setVoiceCopy] = useState<string | null>(() => loadVoiceCopy());
   const [voiceCopyError, setVoiceCopyError] = useState<string | null>(null);
@@ -392,6 +393,13 @@ export default function ScenarioPractice() {
     </button>
   );
 
+  const openVoiceSetup = () => {
+    // Re-recording a copy they already have: the copy box starts ticked.
+    setCopyByDefault(voiceCopy !== null);
+    setAskBaseline(true);
+    setShowProgress(false);
+  };
+
   const progressSection = (
     <div className="flex flex-col gap-3">
       <FitProgress progress={progress} emotionSet={scenario?.emotionSet ?? emotionSet} />
@@ -406,14 +414,11 @@ export default function ScenarioPractice() {
         </button>
         <button
           type="button"
-          onClick={() => {
-            setAskBaseline(true);
-            setShowProgress(false);
-          }}
-          disabled={askBaseline || choosing}
+          onClick={openVoiceSetup}
+          disabled={askBaseline}
           className="rounded-lg px-3 py-1.5 text-sm text-zinc-600 ring-1 ring-zinc-300 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-300 dark:ring-zinc-700 dark:hover:bg-zinc-800"
         >
-          {baseline ? "Redo my normal voice" : "Set up tone feedback"}
+          {voiceCopy ? "Re-record my voice copy" : baseline ? "Redo my normal voice" : "Set up tone feedback"}
         </button>
         {voiceCopy && (
           <button
@@ -440,6 +445,8 @@ export default function ScenarioPractice() {
       : voiceCopy === null
         ? "Hear your replies in your own voice (set up)"
         : null;
+  // On the start screen and in Progress: always a way to set up, or redo, the voice.
+  const voiceButtonLabel = voiceCopy ? "Re-record my voice copy" : setupLabel;
 
   const total = scenario ? repliesFor(scenario) : 0;
   const step = scenario ? (scenario.done ? total : Math.min(scenario.exchanges + 1, total)) : 0;
@@ -455,9 +462,18 @@ export default function ScenarioPractice() {
             type="button"
             onClick={() => setShowProgress((open) => !open)}
             aria-expanded={showProgress}
-            className="rounded-lg px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium ring-1 transition hover:bg-orange-50 dark:hover:bg-orange-950/40 ${
+              showProgress
+                ? "bg-orange-50 text-orange-800 ring-orange-400 dark:bg-orange-950/40 dark:text-orange-200 dark:ring-orange-500"
+                : "bg-white text-zinc-800 ring-zinc-300 shadow-sm dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700"
+            }`}
           >
-            Progress
+            <svg aria-hidden viewBox="0 0 20 20" className="size-4" fill="currentColor">
+              <rect x="3" y="10" width="3" height="7" rx="1" />
+              <rect x="8.5" y="6" width="3" height="11" rx="1" />
+              <rect x="14" y="3" width="3" height="14" rx="1" />
+            </svg>
+            {showProgress ? "Hide progress" : "Progress"}
           </button>
         </header>
 
@@ -569,13 +585,14 @@ export default function ScenarioPractice() {
                 />
                 Start recording my reply when the voice stops talking
               </label>
-              {setupLabel && !askBaseline && (
+              {voiceButtonLabel && !askBaseline && (
                 <button
                   type="button"
-                  onClick={() => setAskBaseline(true)}
-                  className="self-start py-1 text-sm text-zinc-600 underline underline-offset-4 dark:text-zinc-300"
+                  onClick={openVoiceSetup}
+                  className="inline-flex items-center gap-2 self-start rounded-xl px-3.5 py-2 text-sm font-medium text-zinc-800 ring-1 ring-zinc-300 transition hover:bg-orange-50 dark:text-zinc-100 dark:ring-zinc-700 dark:hover:bg-orange-950/40"
                 >
-                  {setupLabel}
+                  <span aria-hidden>🎤</span>
+                  {voiceButtonLabel}
                 </button>
               )}
             </div>
@@ -635,6 +652,7 @@ export default function ScenarioPractice() {
           <VoiceBaseline
             redo={baseline !== null}
             existingCopy={voiceCopy}
+            copyByDefault={copyByDefault}
             onRecordStart={stop}
             onDone={(next, copy) => {
               setBaseline(next);
